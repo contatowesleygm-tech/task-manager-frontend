@@ -1,5 +1,5 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
-import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, Flag, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
+import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, ChevronDown, Flag, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import styled from 'styled-components';
 import {
@@ -31,6 +31,7 @@ const defaultMenuItems: MenuItem[] = [
 ];
 
 const menuStorageKey = 'task-manager-menu-order';
+const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends']);
 
 const TopbarLogout = styled.button`
   display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 8px 12px; border: 1px solid #efc7c1; border-radius: 9px;
@@ -41,6 +42,35 @@ const TopbarLogout = styled.button`
   &:focus-visible { outline: 3px solid #ffc2bd; outline-offset: 2px; }
   svg { width: 16px; height: 16px; }
   @media (max-width: 520px) { padding: 8px 10px; font-size: 0; svg { width: 17px; height: 17px; } }
+`;
+
+const FinanceNavGroup = styled.div`
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+`;
+
+const FinanceNavToggle = styled(NavButton)`
+  justify-content: space-between;
+  &:hover { transform: none; }
+  &[aria-expanded='true'] { color: #fff; background: rgba(255, 255, 255, .09); }
+  .finance-chevron { width: 15px; height: 15px; flex: 0 0 auto; transition: transform .15s ease; }
+`;
+
+const FinanceSubNav = styled.div`
+  display: grid;
+  gap: 4px;
+  padding-left: 10px;
+  margin-left: 14px;
+  border-left: 1px solid rgba(255, 255, 255, .2);
+`;
+
+const FinanceSubNavButton = styled(NavButton)`
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  svg { width: 16px; height: 16px; }
 `;
 
 const ArchiveIntro = styled.p`
@@ -182,11 +212,22 @@ export default function AppLayout({
   const [archivedPageIds, setArchivedPageIds] = useState(() => loadArchivedPages(user.id));
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [managePagesOpen, setManagePagesOpen] = useState(false);
+  const [financeMenuOpen, setFinanceMenuOpen] = useState(() => financeMenuItemIds.has(page));
   const visibleMenuItems = menuItems.filter(item => !archivedPageIds.includes(item.id));
+  const visibleFinanceItems = visibleMenuItems.filter(item => financeMenuItemIds.has(item.id));
+  const sidebarMenuItems = menuItems.filter(item => {
+    if (item.id === 'finances') return visibleFinanceItems.length > 0;
+    if (item.id === 'expenses' || item.id === 'dividends') return false;
+    return !archivedPageIds.includes(item.id);
+  });
 
   useEffect(() => {
     setArchivedPageIds(loadArchivedPages(user.id));
   }, [user.id]);
+
+  useEffect(() => {
+    if (financeMenuItemIds.has(page)) setFinanceMenuOpen(true);
+  }, [page]);
 
   function updatePageArchive(item: MenuItem, shouldArchive: boolean) {
     const visibleCount = menuItems.length - archivedPageIds.length;
@@ -241,26 +282,58 @@ export default function AppLayout({
     setDraggedId(null);
   }
 
+  function renderMenuItem(item: MenuItem, nested = false) {
+    const Icon = item.icon;
+    const Link = nested ? FinanceSubNavButton : NavButton;
+    const isActive = page === item.page || (item.page === 'study-resources' && page === 'study-resource-edit');
+    return (
+      <Link
+        key={item.id}
+        $active={isActive}
+        draggable
+        title="Arraste para mudar a posição"
+        onDragStart={event => handleDragStart(event, item.id)}
+        onDragOver={event => event.preventDefault()}
+        onDrop={event => handleDrop(event, item.id)}
+        onDragEnd={() => setDraggedId(null)}
+        style={{ opacity: draggedId === item.id ? 0.45 : 1 }}
+        aria-current={page === item.page ? 'page' : undefined}
+        onClick={() => onNavigate(item.path)}
+      >
+        <Icon />{nested && item.id === 'finances' ? 'Visão geral' : item.label}
+      </Link>
+    );
+  }
+
   return (
     <Layout>
       <Sidebar>
         <Brand><CheckSquare /><span>Task Manager</span></Brand>
         <Nav aria-label="Navegação principal">
-          {visibleMenuItems.map(({ id, label, path, page: itemPage, icon: Icon }) => (
-            <NavButton
-              key={id}
-              $active={page === itemPage || (itemPage === 'study-resources' && page === 'study-resource-edit')}
-              draggable
-              title="Arraste para mudar a posição"
-              onDragStart={event => handleDragStart(event, id)}
-              onDragOver={event => event.preventDefault()}
-              onDrop={event => handleDrop(event, id)}
-              onDragEnd={() => setDraggedId(null)}
-              style={{ opacity: draggedId === id ? 0.45 : 1 }}
-              onClick={() => onNavigate(path)}
-            >
-              <Icon />{label}
-            </NavButton>
+          {sidebarMenuItems.map(item => item.id !== 'finances' ? renderMenuItem(item) : (
+            <FinanceNavGroup key="finance-group">
+              <FinanceNavToggle
+                type="button"
+                $active={false}
+                aria-expanded={financeMenuOpen}
+                aria-controls="finance-subnav"
+                onClick={() => setFinanceMenuOpen(open => !open)}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 13 }}>
+                  <Banknote />Finanças
+                </span>
+                <ChevronDown
+                  className="finance-chevron"
+                  aria-hidden="true"
+                  style={{ transform: financeMenuOpen ? 'rotate(180deg)' : undefined }}
+                />
+              </FinanceNavToggle>
+              {financeMenuOpen && (
+                <FinanceSubNav id="finance-subnav">
+                  {visibleFinanceItems.map(financeItem => renderMenuItem(financeItem, true))}
+                </FinanceSubNav>
+              )}
+            </FinanceNavGroup>
           ))}
           <NavButton type="button" $active={managePagesOpen} onClick={() => setManagePagesOpen(true)}>
             <Archive />Gerenciar páginas
