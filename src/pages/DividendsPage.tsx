@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import axios from 'axios';
-import { Check, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
+import { Check, ChevronRight, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, Modal, Panel, PanelTitle } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -38,90 +38,102 @@ const Hero = styled.section`
 
 const SummaryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 13px;
-  @media (max-width: 720px) { grid-template-columns: 1fr; }
+  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  @media (max-width: 1100px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 520px) { grid-template-columns: 1fr; }
 `;
 
-const SummaryCard = styled(Panel)`
-  padding: 18px;
-  small { display: block; color: var(--muted); font-size: 11px; }
-  strong { display: block; margin-top: 4px; color: var(--text); font-size: 23px; }
-`;
-
-const HighlightGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
-  @media (max-width: 720px) { grid-template-columns: 1fr; }
-`;
-
-const FeatureHighlight = styled(Panel)<{ $tone?: 'result' | 'income'; $negative?: boolean }>`
+const SummaryCard = styled(Panel)<{ $tone?: 'income' | 'result'; $negative?: boolean }>`
   display: flex;
-  align-items: flex-end;
+  min-width: 0;
+  min-height: 116px;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 18px;
-  padding: 22px 26px;
-  overflow: hidden;
+  gap: 12px;
+  padding: 17px 19px;
   border-color: ${({ $tone, $negative }) => {
-    if ($tone === 'income') return 'color-mix(in srgb, var(--primary) 48%, var(--border))';
-    return $negative
-      ? 'color-mix(in srgb, #c53e38 48%, var(--border))'
-      : 'color-mix(in srgb, #176b4d 48%, var(--border))';
+    if ($tone === 'income') return 'color-mix(in srgb, #176b4d 32%, var(--border))';
+    if ($tone === 'result') return `color-mix(in srgb, ${$negative ? '#c53e38' : '#176b4d'} 32%, var(--border))`;
+    return 'var(--border)';
   }};
-  background:
-    radial-gradient(circle at 100% 0%, ${({ $tone, $negative }) => {
-      if ($tone === 'income') return 'color-mix(in srgb, var(--primary) 28%, transparent)';
-      return $negative
-        ? 'color-mix(in srgb, #c53e38 28%, transparent)'
-        : 'color-mix(in srgb, #176b4d 28%, transparent)';
-    }}, transparent 42%),
-    linear-gradient(120deg,
-      ${({ $tone, $negative }) => {
-        if ($tone === 'income') return 'color-mix(in srgb, var(--primary) 12%, var(--surface))';
-        return $negative
-          ? 'color-mix(in srgb, #c53e38 12%, var(--surface))'
-          : 'color-mix(in srgb, #176b4d 12%, var(--surface))';
-      }},
-      var(--surface));
-  box-shadow: 0 14px 34px var(--shadow);
-  > div:first-child span {
-    display: inline-flex;
-    color: ${({ $tone, $negative }) => {
-      if ($tone === 'income') return 'var(--primary-strong)';
-      return $negative ? '#a63d47' : '#176b4d';
-    }};
-    font-size: 12px;
-    font-weight: 850;
-    letter-spacing: .1em;
+  background: ${({ $tone, $negative }) => {
+    if ($tone === 'income') return 'linear-gradient(135deg, color-mix(in srgb, #176b4d 11%, var(--surface)), var(--surface))';
+    if ($tone === 'result') return `linear-gradient(135deg, color-mix(in srgb, ${$negative ? '#c53e38' : '#176b4d'} 8%, var(--surface)), var(--surface))`;
+    return 'var(--surface)';
+  }};
+  small {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
     text-transform: uppercase;
   }
-  > div:first-child strong {
+  small svg { width: 14px; height: 14px; color: var(--primary-strong); }
+  strong {
     display: block;
-    margin-top: 8px;
+    margin-top: 7px;
+    overflow: hidden;
     color: ${({ $tone, $negative }) => {
-      if ($tone === 'income') return 'var(--text)';
-      return $negative ? '#c53e38' : '#176b4d';
+      if ($tone === 'income') return '#176b4d';
+      if ($tone === 'result') return $negative ? '#c53e38' : '#176b4d';
+      return 'var(--text)';
     }};
-    font-size: clamp(30px, 4.4vw, 44px);
+    font-size: clamp(18px, 2vw, 25px);
+    font-variant-numeric: tabular-nums;
     letter-spacing: -.04em;
-    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  > div:last-child {
+  html[data-theme='dark'] & strong {
     color: ${({ $tone, $negative }) => {
-      if ($tone === 'income') return 'var(--primary-strong)';
-      return $negative ? '#a63d47' : '#176b4d';
+      if ($tone === 'income') return '#8de0b8';
+      if ($tone === 'result') return $negative ? '#ffaaa3' : '#8de0b8';
+      return 'var(--text)';
     }};
-    font-size: 13px;
-    font-weight: 750;
-    text-align: right;
-    opacity: .9;
   }
-  @media (max-width: 620px) {
+`;
+
+const SummaryNote = styled.span`
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+`;
+
+const SectionHeading = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+  ${PanelTitle} { margin: 0; }
+  @media (max-width: 520px) {
     align-items: flex-start;
     flex-direction: column;
-    > div:last-child { text-align: left; }
   }
+`;
+
+const SectionDescription = styled.p`
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+`;
+
+const PositionCount = styled.span`
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-raised);
+  font-size: 11px;
+  font-weight: 750;
 `;
 
 const ContentGrid = styled.div`
@@ -141,14 +153,44 @@ const Toolbar = styled.form`
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   align-items: end;
   gap: 10px;
-  padding: 14px;
-  margin-bottom: 16px;
+  padding: 13px;
+  margin-bottom: 17px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 13px;
   background: var(--surface-raised);
   ${Field} { margin: 0; }
-  @media (max-width: 1100px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 1100px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 480px) { grid-template-columns: 1fr; }
+`;
+
+const ToolbarActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  @media (max-width: 1100px) { grid-column: 1 / -1; justify-content: flex-end; }
+  @media (max-width: 480px) {
+    justify-content: stretch;
+    button { flex: 1; }
+  }
+`;
+
+const ProjectionPanel = styled(Panel)`
+  min-width: 0;
+  padding: 19px;
+`;
+
+const ProjectionControls = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 13px;
+  margin: 14px 0 17px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-raised);
+  ${Field} { margin: 0; }
+  @media (max-width: 520px) { grid-template-columns: 1fr; }
 `;
 
 const List = styled.div`
@@ -341,21 +383,92 @@ const Hint = styled.p`
   font-size: 12px;
 `;
 
-const MonthRow = styled.div`
+const MonthRow = styled.button`
   display: grid;
-  gap: 5px;
-  margin-bottom: 13px;
-  > div:first-child { display: flex; justify-content: space-between; gap: 8px; color: var(--text); font-size: 12px; }
-  > div:first-child span { color: var(--muted); }
-  small { color: var(--muted); font-size: 10px; }
+  width: 100%;
+  gap: 8px;
+  padding: 11px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, padding .15s ease;
+  &:hover { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+  &:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 8px; }
+  &:first-of-type { padding-top: 0; }
+  &:last-child { padding-bottom: 0; border-bottom: 0; }
+  > span:first-child { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; color: var(--text); font-size: 12px; }
+  > span:first-child strong { font-weight: 750; }
+  > span:first-child > span { color: var(--text); font-weight: 750; font-variant-numeric: tabular-nums; }
+  > span:first-child svg { width: 15px; height: 15px; color: var(--muted); transition: color .15s ease, transform .15s ease; }
+  &:hover > span:first-child svg { color: var(--primary); transform: translateX(2px); }
+  small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 `;
 
-const Track = styled.div`
+const DividendModalContent = styled.div`
+  display: grid;
+  gap: 12px;
+`;
+
+const MonthTotal = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid color-mix(in srgb, #176b4d 30%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, #176b4d 8%, var(--surface));
+  small { display: block; color: var(--muted); font-size: 11px; }
+  strong { display: block; margin-top: 3px; color: #176b4d; font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+  html[data-theme='dark'] & strong { color: #8de0b8; }
+  @media (max-width: 520px) { align-items: flex-start; flex-direction: column; }
+`;
+
+const DividendEntries = styled.div`
+  display: grid;
+  gap: 9px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 3px;
+`;
+
+const DividendEntry = styled.article`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-raised);
+  @media (max-width: 520px) { grid-template-columns: 1fr; gap: 9px; }
+`;
+
+const DividendInfo = styled.div`
+  min-width: 0;
+  h3 { margin: 0; color: var(--text); font-size: 14px; }
+  p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+  small { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
+`;
+
+const DividendPayout = styled.div`
+  text-align: right;
+  strong { display: block; color: var(--primary-strong); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+  @media (max-width: 520px) { text-align: left; }
+`;
+
+const Track = styled.span`
+  display: block;
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--surface-raised);
-  > div { height: 100%; border-radius: inherit; background: var(--primary); }
+  > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 `;
 
 const PaginationBar = styled.div`
@@ -366,6 +479,11 @@ const PaginationBar = styled.div`
   margin-top: 16px;
   color: var(--muted);
   font-size: 12px;
+  @media (max-width: 520px) {
+    align-items: stretch;
+    flex-direction: column;
+    > div { justify-content: space-between; }
+  }
 `;
 
 interface FormState {
@@ -449,6 +567,17 @@ function formatPriceUpdatedAt(value?: string | null) {
   return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function paymentDateLabel(value: string) {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-BR', { dateStyle: 'long' });
+}
+
+function quantityLabel(value: number | string) {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 }).format(Number(value) || 0);
+}
+
 function monthLabel(value: string): string {
   const [year, month] = value.split('-');
   return `${monthNames[Number(month) - 1]?.slice(0, 3) ?? month}/${year}`;
@@ -526,6 +655,7 @@ export default function DividendsPage() {
   const [assetTypes, setAssetTypes] = useState<DividendAssetTypeOption[]>(fallbackTypes);
   const [result, setResult] = useState<PaginatedDividendHoldings>();
   const [projection, setProjection] = useState<DividendProjection>();
+  const [selectedMonth, setSelectedMonth] = useState<DividendProjection['months'][number] | null>(null);
   const [portfolio, setPortfolio] = useState<DividendPortfolio>();
   const [from, setFrom] = useState(currentMonth());
   const [months, setMonths] = useState(12);
@@ -694,6 +824,11 @@ export default function DividendsPage() {
     });
   }
 
+  function clearFilters() {
+    setDraft({ asset_type: '', fii_segment: '', active: '', search: '' });
+    setFilters({ page: 1, limit: 20 });
+  }
+
   function assetLabel(type: DividendAssetType | string) {
     return typeById.get(type as DividendAssetType)?.label ?? String(type);
   }
@@ -704,6 +839,9 @@ export default function DividendsPage() {
   const maxMonth = Math.max(...projectedMonths.map(month => Number(month.total) || 0), 1);
   const profitLoss = Number(portfolio?.profit_loss) || 0;
   const pricesUpdatedLabel = formatPriceUpdatedAt(portfolio?.prices_updated_at);
+  const hasAppliedFilters = Boolean(
+    filters.asset_type || filters.fii_segment || filters.active !== undefined || filters.search,
+  );
 
   return (
     <Page>
@@ -729,38 +867,50 @@ export default function DividendsPage() {
       {error && <Panel role="alert" style={{ color: '#c53e38', padding: 14 }}>{error}</Panel>}
       {notice && <Panel role="status" style={{ color: 'var(--primary-strong)', padding: 14 }}>{notice}</Panel>}
 
-      <HighlightGrid>
-        <FeatureHighlight $tone="income" aria-label="Estimativa mensal">
-          <div>
-            <span>Estimativa mensal</span>
-            <strong>{money(projection?.monthly_average)}</strong>
-          </div>
-          <div>
-            {money(projection?.period_total)} no período · {months} meses
-          </div>
-        </FeatureHighlight>
-        <FeatureHighlight $tone="result" $negative={profitLoss < 0} aria-label="Resultado da carteira">
-          <div>
-            <span>Resultado</span>
-            <strong>{money(portfolio?.profit_loss)}</strong>
-          </div>
-          <div>
-            {portfolio?.profit_loss_percent != null
-              ? `${profitLoss < 0 ? '' : '+'}${Number(portfolio.profit_loss_percent).toFixed(2)}% sobre o investido`
-              : 'Lucro ou prejuízo da carteira'}
-          </div>
-        </FeatureHighlight>
-      </HighlightGrid>
-
       <SummaryGrid aria-label="Resumo da carteira">
-        <SummaryCard><small>Total investido</small><strong>{money(portfolio?.invested_total)}</strong></SummaryCard>
-        <SummaryCard><small>Valor atual da carteira</small><strong>{money(portfolio?.current_total)}</strong></SummaryCard>
-        <SummaryCard><small>Ativos na carteira</small><strong>{Number(portfolio?.holdings_count) || pagination?.total || 0}</strong></SummaryCard>
+        <SummaryCard $tone="income">
+          <div>
+            <small><PiggyBank size={14} />Estimativa mensal</small>
+            <strong>{money(projection?.monthly_average)}</strong>
+            <SummaryNote>{money(projection?.period_total)} no período · {months} meses</SummaryNote>
+          </div>
+        </SummaryCard>
+        <SummaryCard>
+          <div>
+            <small>Total investido</small>
+            <strong>{money(portfolio?.invested_total)}</strong>
+            <SummaryNote>Capital aplicado</SummaryNote>
+          </div>
+        </SummaryCard>
+        <SummaryCard>
+          <div>
+            <small>Valor atual da carteira</small>
+            <strong>{money(portfolio?.current_total)}</strong>
+            <SummaryNote>Valor de mercado da carteira</SummaryNote>
+          </div>
+        </SummaryCard>
+        <SummaryCard $tone="result" $negative={profitLoss < 0}>
+          <div>
+            <small><TrendingUp size={14} />Resultado</small>
+            <strong>{money(portfolio?.profit_loss)}</strong>
+            <SummaryNote>
+              {portfolio?.profit_loss_percent != null
+                ? `${profitLoss < 0 ? '' : '+'}${Number(portfolio.profit_loss_percent).toFixed(2)}% sobre o investido`
+                : 'Variação da carteira'}
+            </SummaryNote>
+          </div>
+        </SummaryCard>
       </SummaryGrid>
 
       <ContentGrid>
         <AssetsPanel>
-          <PanelTitle><PiggyBank size={19} />Meus ativos</PanelTitle>
+          <SectionHeading>
+            <div>
+              <PanelTitle><PiggyBank size={19} />Meus ativos</PanelTitle>
+              <SectionDescription>Consulte valores, proventos e situação de cada posição.</SectionDescription>
+            </div>
+            <PositionCount>{Number(portfolio?.holdings_count) || pagination?.total || 0} ativos</PositionCount>
+          </SectionHeading>
           <Toolbar onSubmit={applyFilters}>
             <Field htmlFor="div-filter-type">Tipo
               <select id="div-filter-type" value={draft.asset_type} onChange={event => setDraft(current => ({ ...current, asset_type: event.target.value }))}>
@@ -781,10 +931,13 @@ export default function DividendsPage() {
                 <option value="false">Inativos</option>
               </select>
             </Field>
-            <Field htmlFor="div-filter-search">Buscar
-              <input id="div-filter-search" value={draft.search} onChange={event => setDraft(current => ({ ...current, search: event.target.value }))} placeholder="Ticker ou nome" />
+            <Field htmlFor="div-filter-search">Buscar ativo
+              <input id="div-filter-search" type="search" value={draft.search} onChange={event => setDraft(current => ({ ...current, search: event.target.value }))} placeholder="Ticker ou nome" />
             </Field>
-            <Button type="submit">Filtrar</Button>
+            <ToolbarActions>
+              <Button type="submit">Aplicar filtros</Button>
+              {hasAppliedFilters && <Button type="button" onClick={clearFilters}>Limpar</Button>}
+            </ToolbarActions>
           </Toolbar>
 
           {loading ? (
@@ -853,7 +1006,7 @@ export default function DividendsPage() {
               })}
             </List>
           ) : result ? (
-            <EmptyState><PiggyBank size={30} /><h3>Nenhum ativo encontrado</h3><p>Cadastre um fundo ou ação para projetar seus dividendos.</p><Button type="button" $variant="primary" onClick={openCreate}><Plus />Novo ativo</Button></EmptyState>
+            <EmptyState><PiggyBank size={30} /><h3>Nenhum ativo encontrado</h3><p>Cadastre um ativo para projetar seus dividendos.</p><Button type="button" $variant="primary" onClick={openCreate}><Plus />Novo ativo</Button></EmptyState>
           ) : null}
 
           {pagination && pagination.total > 0 && (
@@ -867,9 +1020,15 @@ export default function DividendsPage() {
           )}
         </AssetsPanel>
 
-        <Panel>
-          <PanelTitle><TrendingUp size={19} />Projeção mensal</PanelTitle>
-          <Toolbar as="div" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 16 }}>
+        <ProjectionPanel>
+          <SectionHeading>
+            <div>
+              <PanelTitle><TrendingUp size={19} />Projeção mensal</PanelTitle>
+              <SectionDescription>Selecione um mês para ver a data e o valor de cada provento previsto.</SectionDescription>
+            </div>
+            <PositionCount>{months} meses</PositionCount>
+          </SectionHeading>
+          <ProjectionControls>
             <Field htmlFor="div-from">A partir de
               <input id="div-from" type="month" value={from} onChange={event => setFrom(event.target.value || currentMonth())} />
             </Field>
@@ -878,19 +1037,69 @@ export default function DividendsPage() {
                 {[6, 12, 24, 36].map(count => <option key={count} value={count}>{count}</option>)}
               </select>
             </Field>
-          </Toolbar>
+          </ProjectionControls>
           {projectedMonths.length ? projectedMonths.map(month => {
             const total = Number(month.total) || 0;
             return (
-              <MonthRow key={month.month}>
-                <div><strong>{monthLabel(month.month)}</strong><span>{money(total)}</span></div>
-                <Track><div style={{ width: `${Math.min((total / maxMonth) * 100, 100)}%` }} /></Track>
+              <MonthRow
+                key={month.month}
+                type="button"
+                aria-label={`Ver detalhes dos proventos de ${monthLabel(month.month)}, estimados em ${money(total)}`}
+                onClick={() => setSelectedMonth(month)}
+              >
+                <span><strong>{monthLabel(month.month)}</strong><span>{money(total)}</span><ChevronRight aria-hidden="true" /></span>
+                <Track aria-hidden="true">
+                  <span style={{ width: `${Math.min((total / maxMonth) * 100, 100)}%` }} />
+                </Track>
                 {month.items.length > 0 && <small>{month.items.map(item => item.ticker).join(', ')}</small>}
               </MonthRow>
             );
-          }) : <p style={{ margin: 0, color: 'var(--muted)', fontSize: 12 }}>Cadastre ativos ativos para ver a projeção.</p>}
-        </Panel>
+          }) : <p style={{ margin: 0, color: 'var(--muted)', fontSize: 12 }}>Cadastre ao menos um ativo para ver a projeção.</p>}
+        </ProjectionPanel>
       </ContentGrid>
+
+      <Modal
+        open={selectedMonth !== null}
+        title={selectedMonth ? `Proventos de ${monthLabel(selectedMonth.month)}` : 'Proventos previstos'}
+        icon={<TrendingUp size={18} />}
+        onClose={() => setSelectedMonth(null)}
+      >
+        {selectedMonth && (
+          <DividendModalContent>
+            <MonthTotal>
+              <div>
+                <small>Total estimado no mês</small>
+                <strong>{money(selectedMonth.total)}</strong>
+              </div>
+              <PositionCount>
+                {selectedMonth.items.length} {selectedMonth.items.length === 1 ? 'provento' : 'proventos'}
+              </PositionCount>
+            </MonthTotal>
+            <SectionDescription>Valores previstos; o pagamento efetivo pode variar.</SectionDescription>
+            {selectedMonth.items.length ? (
+              <DividendEntries aria-label="Detalhes dos proventos previstos">
+                {selectedMonth.items.map((item, index) => (
+                  <DividendEntry key={`${String(item.holding_id)}-${item.payment_date}-${index}`}>
+                    <DividendInfo>
+                      <h3>{item.ticker}</h3>
+                      <p>{item.name || assetLabel(item.asset_type)} · {paymentDateLabel(item.payment_date)}</p>
+                      <small>
+                        {quantityLabel(item.quantity)} cotas × {perShare.format(Number(item.dividend_per_share) || 0)} por cota
+                      </small>
+                    </DividendInfo>
+                    <DividendPayout>
+                      <strong>{money(item.amount)}</strong>
+                      <small>Provento previsto</small>
+                    </DividendPayout>
+                  </DividendEntry>
+                ))}
+              </DividendEntries>
+            ) : (
+              <EmptyState><p>Nenhum provento detalhado para este mês.</p></EmptyState>
+            )}
+          </DividendModalContent>
+        )}
+      </Modal>
 
       <Modal
         open={formOpen}
