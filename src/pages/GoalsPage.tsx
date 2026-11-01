@@ -81,18 +81,18 @@ const GoalCard = styled.article`
   display: grid;
   gap: 16px;
   padding: 22px;
-  border: 1px solid #e5ebf3;
+  border: 1px solid var(--border);
   border-left: 3px solid var(--primary);
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(23, 38, 61, 0.025);
+  background: var(--surface);
+  box-shadow: 0 4px 14px var(--shadow);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
     transform 0.15s ease;
   &:hover {
-    border-color: #cbd9ed;
-    box-shadow: 0 10px 26px rgba(23, 38, 61, 0.07);
+    border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+    box-shadow: 0 10px 26px var(--shadow);
     transform: translateY(-1px);
   }
   @media (max-width: 520px) {
@@ -118,18 +118,18 @@ const GoalIdentity = styled.div`
   > svg {
     flex: 0 0 auto;
     margin-top: 1px;
-    color: #3477e2;
+    color: var(--primary-strong);
   }
   h2 {
     margin: 0;
-    color: #1d2b40;
+    color: var(--text);
     font-size: 17px;
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
   p {
     margin: 5px 0 0;
-    color: #71819a;
+    color: var(--muted);
     font-size: 12px;
     line-height: 1.55;
     white-space: pre-wrap;
@@ -162,12 +162,12 @@ const GoalMeta = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 14px;
-  color: #63738b;
+  color: var(--muted);
   font-size: 11px;
   svg {
     width: 14px;
     height: 14px;
-    color: #91a0b4;
+    color: var(--muted);
   }
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -182,7 +182,7 @@ const GoalStatusSelect = styled.select`
   background: var(--surface-raised);
   font: inherit;
   &:focus-visible {
-    outline: 3px solid #b8d0fb;
+    outline: 3px solid var(--focus);
     outline-offset: 1px;
   }
 `;
@@ -233,7 +233,7 @@ const StepsHeading = styled.div`
   font-size: 13px;
   font-weight: 800;
   small {
-    color: #71819a;
+    color: var(--muted);
     font-size: 11px;
     font-weight: 500;
   }
@@ -255,10 +255,14 @@ const StepRow = styled.div<{ $completed: boolean }>`
   align-items: center;
   gap: 10px;
   padding: 10px 11px;
-  border: 1px solid ${({ $completed }) => ($completed ? '#d8eee2' : 'var(--border)')};
+  border: 1px solid ${({ $completed }) => ($completed
+    ? 'var(--success-border)'
+    : 'var(--border)')};
   border-radius: 9px;
   color: ${({ $completed }) => ($completed ? 'var(--muted)' : 'var(--text)')};
-  background: ${({ $completed }) => ($completed ? '#f5fbf7' : 'var(--surface-raised)')};
+  background: ${({ $completed }) => ($completed
+    ? 'var(--success-soft)'
+    : 'var(--surface-raised)')};
   font-size: 12px;
   span {
     min-width: 0;
@@ -269,7 +273,7 @@ const StepRow = styled.div<{ $completed: boolean }>`
   }
   > svg {
     flex: 0 0 auto;
-    color: ${({ $completed }) => ($completed ? '#21875c' : '#a4afbd')};
+    color: ${({ $completed }) => ($completed ? 'var(--success)' : 'var(--muted)')};
   }
 `;
 
@@ -525,7 +529,7 @@ export default function GoalsPage({
       {showForm && (
         <GoalFormPanel>
           <PanelTitle>
-            <Flag size={19} color="#2164dc" />
+          <Flag size={19} color="var(--primary-strong)" />
             {editingGoal ? 'Editar objetivo' : 'Planejar um objetivo'}
           </PanelTitle>
           <form
@@ -927,7 +931,7 @@ const SummaryCard = styled.div`
   border: 1px solid var(--border);
   border-radius: 13px;
   background: linear-gradient(135deg, var(--surface), var(--surface-raised));
-  box-shadow: 0 4px 14px rgba(23, 38, 61, 0.03);
+  box-shadow: 0 4px 14px var(--shadow);
   > div > span {
     display: block;
     color: var(--muted);
@@ -947,8 +951,16 @@ const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' }>`
   height: 42px;
   place-items: center;
   border-radius: 12px;
-  color: ${({ $tone }) => ($tone === 'green' ? '#15815d' : '#2164dc')};
-  background: ${({ $tone }) => ($tone === 'green' ? '#e6f7ef' : '#e9f1ff')};
+  background: ${({ $tone }) => ($tone === 'green'
+    ? 'var(--success-soft)'
+    : 'color-mix(in srgb, var(--primary) 13%, var(--surface))')};
+  color: ${({ $tone }) => ($tone === 'green' ? 'var(--success)' : 'var(--primary-strong)')};
+  html[data-theme='dark'] & {
+    color: ${({ $tone }) => ($tone === 'green' ? 'var(--success)' : 'var(--primary-strong)')};
+    background: ${({ $tone }) => ($tone === 'green'
+      ? 'var(--success-soft)'
+      : 'color-mix(in srgb, var(--primary) 19%, var(--surface))')};
+  }
   svg {
     width: 19px;
     height: 19px;

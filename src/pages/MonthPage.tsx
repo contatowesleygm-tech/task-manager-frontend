@@ -37,8 +37,8 @@ const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' | 'gray' }>`
   height: 42px;
   place-items: center;
   border-radius: 12px;
-  color: ${({ $tone }) => $tone === 'green' ? '#15815d' : $tone === 'gray' ? '#63738b' : 'var(--primary)'};
-  background: ${({ $tone }) => $tone === 'green' ? '#e6f7ef' : $tone === 'gray' ? '#edf1f6' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
+  color: ${({ $tone }) => $tone === 'green' ? 'var(--success)' : $tone === 'gray' ? 'var(--muted)' : 'var(--primary-strong)'};
+  background: ${({ $tone }) => $tone === 'green' ? 'var(--success-soft)' : $tone === 'gray' ? 'var(--surface-raised)' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
   svg { width: 19px; height: 19px; }
   @media (max-width: 620px) { width: 36px; height: 36px; }
 `;
@@ -123,13 +123,13 @@ const ChecklistItem = styled.label<{ $completed: boolean }>`
   align-items: center;
   gap: 10px;
   padding: 11px 12px;
-  border: 1px solid ${({ $completed }) => $completed ? '#cdebdc' : 'var(--border)'};
+  border: 1px solid ${({ $completed }) => $completed ? 'var(--success-border)' : 'var(--border)'};
   border-radius: 10px;
-  background: ${({ $completed }) => $completed ? '#f2fbf6' : 'var(--surface-raised)'};
+  background: ${({ $completed }) => $completed ? 'var(--success-soft)' : 'var(--surface-raised)'};
   cursor: pointer;
   transition: border-color .15s ease, background .15s ease;
-  &:hover { border-color: ${({ $completed }) => $completed ? '#a9ddc2' : 'var(--primary)'}; }
-  input { width: 17px; height: 17px; flex: 0 0 auto; margin: 0; accent-color: var(--primary); cursor: pointer; }
+  &:hover { border-color: ${({ $completed }) => $completed ? 'var(--success-hover)' : 'var(--primary)'}; }
+  input { width: 17px; height: 17px; flex: 0 0 auto; margin: 0; accent-color: ${({ $completed }) => $completed ? 'var(--success)' : 'var(--primary)'}; cursor: pointer; }
 `;
 
 const ChecklistTitle = styled.span<{ $completed: boolean }>`
@@ -271,7 +271,7 @@ export default function MonthPage({
                         onChange={event => onToggleItem(item.id, event.target.checked)}
                       />
                       <ChecklistTitle $completed={item.is_completed}>{item.title}</ChecklistTitle>
-                      {item.is_completed && <Check size={16} color="#15815d" aria-label="Concluído" />}
+                      {item.is_completed && <Check size={16} color="var(--success)" aria-label="Concluído" />}
                     </ChecklistItem>
                   ))}
                 </ChecklistGrid>

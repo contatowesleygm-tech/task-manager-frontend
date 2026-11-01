@@ -17,6 +17,10 @@ const GlobalStyle = createGlobalStyle`
     --primary: #7054d8;
     --primary-strong: #5638bf;
     --accent: #c7e85b;
+    --success: #15815d;
+    --success-soft: #e6f7ef;
+    --success-border: #cdebdc;
+    --success-hover: #a9ddc2;
     --focus: rgba(112, 84, 216, .34);
     --scroll-track: #eee8dd;
     --scroll-thumb: #bcb3a6;
@@ -33,6 +37,10 @@ const GlobalStyle = createGlobalStyle`
     --primary: #ae9bff;
     --primary-strong: #c2b5ff;
     --accent: #c7e85b;
+    --success: #8de0b8;
+    --success-soft: #20382f;
+    --success-border: #3d6855;
+    --success-hover: #548c70;
     --focus: rgba(174, 155, 255, .42);
     --scroll-track: #201f2b;
     --scroll-thumb: #514d60;

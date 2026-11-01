@@ -20,12 +20,12 @@ const SummaryCard = styled.div`
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border: 1px solid #e5ebf3;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: linear-gradient(135deg, #fff, #f9fbfe);
-  box-shadow: 0 5px 18px rgba(23, 38, 61, .035);
-  > div > span { display: block; color: #71819a; font-size: 12px; }
-  > div > strong { display: block; margin-top: 3px; color: #1d2b40; font-size: 25px; line-height: 1.2; }
+  background: linear-gradient(135deg, var(--surface), var(--surface-raised));
+  box-shadow: 0 5px 18px var(--shadow);
+  > div > span { display: block; color: var(--muted); font-size: 12px; }
+  > div > strong { display: block; margin-top: 3px; color: var(--text); font-size: 25px; line-height: 1.2; font-variant-numeric: tabular-nums; }
 `;
 
 const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' }>`
@@ -34,8 +34,16 @@ const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' }>`
   height: 42px;
   place-items: center;
   border-radius: 12px;
-  color: ${({ $tone }) => $tone === 'green' ? '#15815d' : '#2164dc'};
-  background: ${({ $tone }) => $tone === 'green' ? '#e6f7ef' : '#e9f1ff'};
+  color: ${({ $tone }) => $tone === 'green' ? 'var(--success)' : 'var(--primary-strong)'};
+  background: ${({ $tone }) => $tone === 'green'
+    ? 'var(--success-soft)'
+    : 'color-mix(in srgb, var(--primary) 13%, var(--surface))'};
+  html[data-theme='dark'] & {
+    color: ${({ $tone }) => $tone === 'green' ? 'var(--success)' : 'var(--primary-strong)'};
+    background: ${({ $tone }) => $tone === 'green'
+      ? 'var(--success-soft)'
+      : 'color-mix(in srgb, var(--primary) 19%, var(--surface))'};
+  }
   svg { width: 19px; height: 19px; }
 `;
 
@@ -48,10 +56,11 @@ const CompletedTask = styled.article`
   display: grid;
   gap: 10px;
   padding: 17px 18px;
-  border: 1px solid #d8eee2;
+  border: 1px solid var(--success-border);
   border-left: 3px solid #35a574;
   border-radius: 12px;
-  background: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--success) 4%, var(--surface)), var(--surface));
+  box-shadow: 0 5px 18px var(--shadow);
 `;
 
 const TaskHeading = styled.div`
@@ -59,7 +68,7 @@ const TaskHeading = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  h2 { margin: 0; color: #1d2b40; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+  h2 { margin: 0; color: var(--text); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 `;
 
 const CompletedItemRow = styled.div`
@@ -68,15 +77,15 @@ const CompletedItemRow = styled.div`
   align-items: flex-start;
   gap: 10px;
   padding: 10px 11px;
-  border: 1px solid #e6f2eb;
+  border: 1px solid var(--success-border);
   border-radius: 9px;
-  color: #476653;
-  background: #f5fbf7;
+  color: var(--text);
+  background: color-mix(in srgb, var(--success) 5%, var(--surface-raised));
   font-size: 12px;
   line-height: 1.45;
-  svg { flex: 0 0 auto; color: #21875c; }
+  svg { flex: 0 0 auto; color: var(--success); }
   span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
-  time { color: #71819a; font-size: 11px; white-space: nowrap; }
+  time { color: var(--muted); font-size: 11px; white-space: nowrap; }
   @media (max-width: 500px) { flex-wrap: wrap; }
 `;
 
@@ -86,13 +95,13 @@ const DateNote = styled.div`
   gap: 9px;
   padding: 13px 15px;
   margin-bottom: 16px;
-  border: 1px solid #dce9fb;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
   border-radius: 10px;
-  color: #52637b;
-  background: #f3f8ff;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-raised));
   font-size: 12px;
   line-height: 1.5;
-  svg { flex: 0 0 auto; color: #3477e2; }
+  svg { flex: 0 0 auto; color: var(--primary-strong); }
 `;
 
 interface CompletedPageProps {

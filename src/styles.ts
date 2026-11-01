@@ -82,9 +82,9 @@ export const PreviewHeading = styled.div`display: flex; align-items: center; gap
 export const Meta = styled.div`display: grid; gap: 11px; color: var(--muted); font-size: 13px; margin-top: 15px;`;
 export const Status = styled.span<{ $done?: boolean }>`
   display: inline-flex; border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 700;
-  color: ${({ $done }) => $done ? '#14815e' : 'var(--primary-strong)'};
-  background: ${({ $done }) => $done ? '#ddf7ec' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
-  html[data-theme='dark'] & { color: ${({ $done }) => $done ? '#8de0b8' : 'var(--primary-strong)'}; background: ${({ $done }) => $done ? '#1e3a31' : 'color-mix(in srgb, var(--primary) 20%, var(--surface))'}; }
+  color: ${({ $done }) => $done ? 'var(--success)' : 'var(--primary-strong)'};
+  background: ${({ $done }) => $done ? 'var(--success-soft)' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
+  html[data-theme='dark'] & { color: ${({ $done }) => $done ? 'var(--success)' : 'var(--primary-strong)'}; background: ${({ $done }) => $done ? 'var(--success-soft)' : 'color-mix(in srgb, var(--primary) 20%, var(--surface))'}; }
 `;
 export const ChecklistRow = styled.div`display: flex; align-items: center; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--border); &:last-child { border-bottom: 0; }
   input { width: 17px; height: 17px; accent-color: var(--primary); }
