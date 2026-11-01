@@ -433,7 +433,7 @@ export default function LoginPage({ onLogin, onRegister }: LoginPageProps) {
         <LoginCard $wide>
           <Brand>
             <BrandIcon><CheckSquare aria-hidden="true" /></BrandIcon>
-            Task Manager
+            Rumo
           </Brand>
           <Heading>
             <h1>Conta criada</h1>
@@ -488,7 +488,7 @@ export default function LoginPage({ onLogin, onRegister }: LoginPageProps) {
       <LoginCard $wide={mode === 'register'}>
         <Brand>
           <BrandIcon><CheckSquare aria-hidden="true" /></BrandIcon>
-          Task Manager
+          Rumo
         </Brand>
         <Heading>
           <h1>{mode === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta'}</h1>

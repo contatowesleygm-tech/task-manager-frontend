@@ -16,6 +16,9 @@ export const Brand = styled.div`
   display: flex; align-items: center; gap: 11px; padding: 0 12px; color: #fff;
   font-weight: 800; font-size: 20px; letter-spacing: -.4px;
   svg { width: 30px; height: 30px; }
+  .brand-copy { display: grid; gap: 2px; min-width: 0; }
+  .brand-copy strong { font: inherit; }
+  .brand-copy small { color: rgba(232, 226, 244, .72); font-size: 9px; font-weight: 550; letter-spacing: 0; line-height: 1.25; }
 `;
 export const Nav = styled.nav`
   display: grid; gap: 7px;

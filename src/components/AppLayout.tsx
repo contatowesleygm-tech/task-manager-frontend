@@ -308,7 +308,13 @@ export default function AppLayout({
   return (
     <Layout>
       <Sidebar>
-        <Brand><CheckSquare /><span>Task Manager</span></Brand>
+        <Brand>
+          <CheckSquare />
+          <span className="brand-copy">
+            <strong>Rumo</strong>
+            <small>Organize hoje. Avance no seu ritmo.</small>
+          </span>
+        </Brand>
         <Nav aria-label="Navegação principal">
           {sidebarMenuItems.map(item => item.id !== 'finances' ? renderMenuItem(item) : (
             <FinanceNavGroup key="finance-group">
