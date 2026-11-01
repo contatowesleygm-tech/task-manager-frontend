@@ -1318,7 +1318,6 @@ export default function AppRoutes() {
       onNavigate={navigate}
       user={authUser}
       onLogout={() => { void handleLogout(); }}
-      onSettings={() => setNotice('Configurações serão adicionadas em uma próxima etapa.')}
       onDismissError={() => setError('')}
       onDismissNotice={() => setNotice('')}
       onDismissCelebration={() => setCelebration('')}

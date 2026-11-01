@@ -198,20 +198,19 @@ interface AppLayoutProps {
   onNavigate: (path: string) => void;
   user: AuthUser;
   onLogout: () => void;
-  onSettings: () => void;
   onDismissError: () => void;
   onDismissNotice: () => void;
   onDismissCelebration: () => void;
 }
 
 export default function AppLayout({
-  page, error, notice, children, onNavigate, onSettings,
+  page, error, notice, children, onNavigate,
   user, onLogout, onDismissError, onDismissNotice, celebration, onDismissCelebration,
 }: AppLayoutProps) {
   const [menuItems, setMenuItems] = useState(loadMenuItems);
   const [archivedPageIds, setArchivedPageIds] = useState(() => loadArchivedPages(user.id));
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [managePagesOpen, setManagePagesOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [financeMenuOpen, setFinanceMenuOpen] = useState(() => financeMenuItemIds.has(page));
   const visibleMenuItems = menuItems.filter(item => !archivedPageIds.includes(item.id));
   const visibleFinanceItems = visibleMenuItems.filter(item => financeMenuItemIds.has(item.id));
@@ -341,13 +340,12 @@ export default function AppLayout({
               )}
             </FinanceNavGroup>
           ))}
-          <NavButton type="button" $active={managePagesOpen} onClick={() => setManagePagesOpen(true)}>
-            <Archive />Gerenciar páginas
-            {archivedPageIds.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11 }}>{archivedPageIds.length}</span>}
-          </NavButton>
         </Nav>
         <div style={{ marginTop: 'auto' }}>
-          <NavButton onClick={onSettings}><Settings />Configurações</NavButton>
+          <NavButton type="button" $active={settingsOpen} onClick={() => setSettingsOpen(true)}>
+            <Settings />Configurações
+            {archivedPageIds.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11 }}>{archivedPageIds.length}</span>}
+          </NavButton>
         </div>
       </Sidebar>
       <Main>
@@ -384,13 +382,14 @@ export default function AppLayout({
         </Content>
       </Main>
       <Modal
-        open={managePagesOpen}
-        title="Gerenciar páginas"
-        icon={<Archive size={19} />}
-        onClose={() => setManagePagesOpen(false)}
+        open={settingsOpen}
+        title="Configurações"
+        icon={<Settings size={19} />}
+        onClose={() => setSettingsOpen(false)}
       >
+        <strong style={{ display: 'block', marginBottom: 8, color: 'var(--text)', fontSize: 14 }}>Páginas do menu</strong>
         <ArchiveIntro>
-          Arquive temporariamente as páginas que não usa. Elas saem do menu, mas podem ser restauradas a qualquer momento; seus dados continuam preservados.
+          Escolha quais páginas aparecem no menu lateral. As páginas arquivadas podem ser restauradas a qualquer momento; seus dados continuam preservados.
         </ArchiveIntro>
         <ArchiveList>
           {menuItems.map(item => {
