@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import axios from 'axios';
 import { Check, ChevronRight, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
 import styled from 'styled-components';
-import { Button, EmptyState, Field, Modal, Panel, PanelTitle } from '../components/ui';
+import { Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import {
   createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
@@ -16,24 +16,6 @@ import type {
 const Page = styled.div`
   display: grid;
   gap: 20px;
-`;
-
-const Hero = styled.section`
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-  padding: clamp(22px, 4vw, 36px);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 25%),
-    linear-gradient(120deg, color-mix(in srgb, var(--primary) 18%, var(--surface)), var(--surface));
-  box-shadow: 0 12px 32px var(--shadow);
-  > div > span { display: inline-flex; align-items: center; gap: 7px; color: var(--primary-strong); font-size: 11px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-  h1 { margin: 14px 0 8px; color: var(--text); font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; }
-  p { max-width: 560px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
-  @media (max-width: 650px) { align-items: stretch; flex-direction: column; }
 `;
 
 const SummaryGrid = styled.div`
@@ -53,13 +35,13 @@ const SummaryCard = styled(Panel)<{ $tone?: 'income' | 'result'; $negative?: boo
   gap: 12px;
   padding: 17px 19px;
   border-color: ${({ $tone, $negative }) => {
-    if ($tone === 'income') return 'color-mix(in srgb, #176b4d 32%, var(--border))';
-    if ($tone === 'result') return `color-mix(in srgb, ${$negative ? '#c53e38' : '#176b4d'} 32%, var(--border))`;
+    if ($tone === 'income') return 'color-mix(in srgb, var(--success) 32%, var(--border))';
+    if ($tone === 'result') return `color-mix(in srgb, ${$negative ? 'var(--error)' : 'var(--success)'} 32%, var(--border))`;
     return 'var(--border)';
   }};
   background: ${({ $tone, $negative }) => {
-    if ($tone === 'income') return 'linear-gradient(135deg, color-mix(in srgb, #176b4d 11%, var(--surface)), var(--surface))';
-    if ($tone === 'result') return `linear-gradient(135deg, color-mix(in srgb, ${$negative ? '#c53e38' : '#176b4d'} 8%, var(--surface)), var(--surface))`;
+    if ($tone === 'income') return 'color-mix(in srgb, var(--success) 8%, var(--surface))';
+    if ($tone === 'result') return `color-mix(in srgb, ${$negative ? 'var(--error)' : 'var(--success)'} 6%, var(--surface))`;
     return 'var(--surface)';
   }};
   small {
@@ -78,8 +60,8 @@ const SummaryCard = styled(Panel)<{ $tone?: 'income' | 'result'; $negative?: boo
     margin-top: 7px;
     overflow: hidden;
     color: ${({ $tone, $negative }) => {
-      if ($tone === 'income') return '#176b4d';
-      if ($tone === 'result') return $negative ? '#c53e38' : '#176b4d';
+      if ($tone === 'income') return 'var(--success)';
+      if ($tone === 'result') return $negative ? 'var(--error)' : 'var(--success)';
       return 'var(--text)';
     }};
     font-size: clamp(18px, 2vw, 25px);
@@ -87,13 +69,6 @@ const SummaryCard = styled(Panel)<{ $tone?: 'income' | 'result'; $negative?: boo
     letter-spacing: -.04em;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  html[data-theme='dark'] & strong {
-    color: ${({ $tone, $negative }) => {
-      if ($tone === 'income') return '#8de0b8';
-      if ($tone === 'result') return $negative ? '#ffaaa3' : '#8de0b8';
-      return 'var(--text)';
-    }};
   }
 `;
 
@@ -291,15 +266,15 @@ const Metrics = styled.div`
 const Metric = styled.div<{ $accent?: 'result' | 'income' | 'negative' }>`
   padding: 11px 12px;
   border: 1px solid ${({ $accent }) => {
-    if ($accent === 'result') return 'color-mix(in srgb, #176b4d 35%, var(--border))';
-    if ($accent === 'negative') return 'color-mix(in srgb, #c53e38 35%, var(--border))';
+    if ($accent === 'result') return 'color-mix(in srgb, var(--success) 35%, var(--border))';
+    if ($accent === 'negative') return 'color-mix(in srgb, var(--error) 35%, var(--border))';
     if ($accent === 'income') return 'color-mix(in srgb, var(--primary) 35%, var(--border))';
     return 'var(--border)';
   }};
   border-radius: 12px;
   background: ${({ $accent }) => {
-    if ($accent === 'result') return 'color-mix(in srgb, #176b4d 8%, var(--surface))';
-    if ($accent === 'negative') return 'color-mix(in srgb, #c53e38 8%, var(--surface))';
+    if ($accent === 'result') return 'color-mix(in srgb, var(--success) 8%, var(--surface))';
+    if ($accent === 'negative') return 'color-mix(in srgb, var(--error) 8%, var(--surface))';
     if ($accent === 'income') return 'color-mix(in srgb, var(--primary) 8%, var(--surface))';
     return 'var(--surface)';
   }};
@@ -315,8 +290,8 @@ const Metric = styled.div<{ $accent?: 'result' | 'income' | 'negative' }>`
     display: block;
     margin-top: 5px;
     color: ${({ $accent }) => {
-      if ($accent === 'result') return '#176b4d';
-      if ($accent === 'negative') return '#c53e38';
+      if ($accent === 'result') return 'var(--success)';
+      if ($accent === 'negative') return 'var(--error)';
       if ($accent === 'income') return 'var(--primary-strong)';
       return 'var(--text)';
     }};
@@ -356,8 +331,7 @@ const IconButton = styled.button`
   background: var(--surface);
   cursor: pointer;
   &:hover { color: var(--primary); border-color: var(--primary); }
-  &[data-danger='true']:hover { color: #c53e38; background: #fff3f2; }
-  html[data-theme='dark'] &[data-danger='true']:hover { color: #ffaaa3; background: #39232b; }
+  &[data-danger='true']:hover { color: var(--error); background: var(--error-soft); }
   svg { width: 15px; height: 15px; }
 `;
 
@@ -419,12 +393,11 @@ const MonthTotal = styled.div`
   justify-content: space-between;
   gap: 12px;
   padding: 15px 16px;
-  border: 1px solid color-mix(in srgb, #176b4d 30%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
   border-radius: 14px;
-  background: color-mix(in srgb, #176b4d 8%, var(--surface));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
   small { display: block; color: var(--muted); font-size: 11px; }
-  strong { display: block; margin-top: 3px; color: #176b4d; font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
-  html[data-theme='dark'] & strong { color: #8de0b8; }
+  strong { display: block; margin-top: 3px; color: var(--success); font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
   @media (max-width: 520px) { align-items: flex-start; flex-direction: column; }
 `;
 
@@ -845,7 +818,7 @@ export default function DividendsPage() {
 
   return (
     <Page>
-      <Hero>
+      <PageHero>
         <div>
           <span><PiggyBank size={14} /> Dividendos</span>
           <h1>Sua renda passiva, mês a mês.</h1>
@@ -862,9 +835,9 @@ export default function DividendsPage() {
           </Button>
           <Button type="button" $variant="primary" onClick={openCreate}><Plus />Novo ativo</Button>
         </div>
-      </Hero>
+      </PageHero>
 
-      {error && <Panel role="alert" style={{ color: '#c53e38', padding: 14 }}>{error}</Panel>}
+      {error && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{error}</Panel>}
       {notice && <Panel role="status" style={{ color: 'var(--primary-strong)', padding: 14 }}>{notice}</Panel>}
 
       <SummaryGrid aria-label="Resumo da carteira">

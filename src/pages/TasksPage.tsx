@@ -39,8 +39,8 @@ const OverviewIcon = styled.span<{ $tone: 'blue' | 'green' | 'gray' }>`
   height: 42px;
   place-items: center;
   border-radius: 12px;
-  color: ${({ $tone }) => $tone === 'green' ? '#15815d' : $tone === 'gray' ? 'var(--muted)' : 'var(--primary)'};
-  background: ${({ $tone }) => $tone === 'green' ? '#e6f7ef' : $tone === 'gray' ? 'var(--surface-raised)' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
+  color: ${({ $tone }) => $tone === 'green' ? 'var(--success)' : $tone === 'gray' ? 'var(--muted)' : 'var(--primary)'};
+  background: ${({ $tone }) => $tone === 'green' ? 'var(--success-soft)' : $tone === 'gray' ? 'var(--surface-raised)' : 'var(--primary-soft)'};
   svg { width: 19px; height: 19px; }
   @media (max-width: 620px) { width: 36px; height: 36px; }
 `;
@@ -341,13 +341,9 @@ const PriorityBadge = styled.span<{ $priority: TaskPriority }>`
   align-items: center;
   gap: 5px;
   padding: 5px 8px;
-  border-radius: 7px;
-  color: ${({ $priority }) => $priority === 'high' ? '#a52d28' : $priority === 'medium' ? '#9a5b08' : '#176b4d'};
-  background: ${({ $priority }) => $priority === 'high' ? '#fff0ef' : $priority === 'medium' ? '#fff5df' : '#eafaf3'};
-  html[data-theme='dark'] & {
-    color: ${({ $priority }) => $priority === 'high' ? '#ffaaa3' : $priority === 'medium' ? '#f3c477' : '#8de0b8'};
-    background: ${({ $priority }) => $priority === 'high' ? '#452a30' : $priority === 'medium' ? '#453821' : '#20382f'};
-  }
+  border-radius: var(--radius-full);
+  color: ${({ $priority }) => $priority === 'high' ? 'var(--error)' : $priority === 'medium' ? 'var(--warning)' : 'var(--success)'};
+  background: ${({ $priority }) => $priority === 'high' ? 'var(--error-soft)' : $priority === 'medium' ? 'var(--warning-soft)' : 'var(--success-soft)'};
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;

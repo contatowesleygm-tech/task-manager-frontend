@@ -44,7 +44,7 @@ const ProgressTrack = styled.div`
   overflow: hidden;
   border-radius: 999px;
   background: var(--border);
-  div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), #46ad82); }
+  div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--success)); }
 `;
 
 const SectionTitle = styled.h2`
@@ -70,7 +70,7 @@ const DetailStats = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  color: #71819a;
+  color: var(--muted);
   font-size: 11px;
 `;
 
@@ -99,7 +99,7 @@ const DayButton = styled.button<{ $active: boolean }>`
   text-align: left;
   cursor: pointer;
   &:hover { border-color: var(--primary); }
-  &:focus-visible { outline: 3px solid #b8d0fb; outline-offset: 1px; }
+  &:focus-visible { outline: 3px solid var(--primary-soft); outline-offset: 1px; }
 `;
 
 const DayHeader = styled.span`
@@ -140,10 +140,10 @@ const HistoryItem = styled.div<{ $completed: boolean }>`
   align-items: start;
   gap: 9px;
   padding: 11px 12px;
-  border: 1px solid ${({ $completed }) => $completed ? '#d8eee2' : 'var(--border)'};
+  border: 1px solid ${({ $completed }) => $completed ? 'var(--success-border)' : 'var(--border)'};
   border-radius: 9px;
   background: ${({ $completed }) => $completed ? '#f5fbf7' : 'var(--surface-raised)'};
-  > svg { margin-top: 1px; color: ${({ $completed }) => $completed ? '#21875c' : '#9aa7b8'}; }
+  > svg { margin-top: 1px; color: ${({ $completed }) => $completed ? 'var(--success)' : 'var(--text-subtle)'}; }
 `;
 
 const ItemDetails = styled.div`
@@ -393,7 +393,7 @@ export default function HistoryPage({
               {itemsByTask.map(record => (
                 <section key={String(record.task_id)} aria-label={record.task_title}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-                    <strong style={{ color: '#273850', fontSize: 13 }}>{record.task_title}</strong>
+                    <strong style={{ color: 'var(--text)', fontSize: 13 }}>{record.task_title}</strong>
                     <Status $done={record.completed_items === record.total_items && record.total_items > 0}>
                       {record.completed_items}/{record.total_items} concluídas
                     </Status>

@@ -4,7 +4,7 @@ import {
   CalendarDays, Check, LoaderCircle, Pause, Pencil, Play, Plus, Receipt, Repeat, ShoppingBag, Trash2, Wallet, X,
 } from 'lucide-react';
 import styled from 'styled-components';
-import { Button, EmptyState, Field, Modal, Panel, PanelTitle } from '../components/ui';
+import { Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import {
   createExpense, deleteExpense, getExpenseCategories, getExpenses, getExpenseSummary, updateExpense,
@@ -16,24 +16,6 @@ import type {
 const Page = styled.div`
   display: grid;
   gap: 20px;
-`;
-
-const Hero = styled.section`
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-  padding: clamp(22px, 4vw, 36px);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 25%),
-    linear-gradient(120deg, color-mix(in srgb, var(--primary) 18%, var(--surface)), var(--surface));
-  box-shadow: 0 12px 32px var(--shadow);
-  > div > span { display: inline-flex; align-items: center; gap: 7px; color: var(--primary-strong); font-size: 11px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-  h1 { margin: 14px 0 8px; color: var(--text); font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; }
-  p { max-width: 520px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
-  @media (max-width: 650px) { align-items: stretch; flex-direction: column; }
 `;
 
 const SummaryGrid = styled.div`
@@ -145,8 +127,7 @@ const IconButton = styled.button`
   background: var(--surface-raised);
   cursor: pointer;
   &:hover { color: var(--primary); border-color: var(--primary); }
-  &[data-danger='true']:hover { color: #c53e38; background: #fff3f2; }
-  html[data-theme='dark'] &[data-danger='true']:hover { color: #ffaaa3; background: #39232b; }
+  &[data-danger='true']:hover { color: var(--error); background: var(--error-soft); }
   svg { width: 15px; height: 15px; }
 `;
 
@@ -372,16 +353,16 @@ export default function ExpensesPage() {
 
   return (
     <Page>
-      <Hero>
+      <PageHero>
         <div>
           <span><Receipt size={14} /> Controle de despesas</span>
           <h1>Para onde vai seu dinheiro.</h1>
           <p>Registre compras e contas fixas mensais e veja quanto cada categoria pesa no seu mês.</p>
         </div>
         <Button type="button" $variant="primary" onClick={openCreate}><Plus />Nova despesa</Button>
-      </Hero>
+      </PageHero>
 
-      {error && <Panel role="alert" style={{ color: '#c53e38', padding: 14 }}>{error}</Panel>}
+      {error && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{error}</Panel>}
       {notice && <Panel role="status" style={{ color: 'var(--primary-strong)', padding: 14 }}>{notice}</Panel>}
 
       <SummaryGrid aria-label="Resumo das despesas do mês">
@@ -394,7 +375,7 @@ export default function ExpensesPage() {
           return (
             <SummaryCard>
               <small>Vs. mês anterior ({summary.comparison.previous_month})</small>
-              <strong style={{ color: diff > 0 ? '#c53e38' : diff < 0 ? 'var(--primary-strong)' : undefined }}>
+              <strong style={{ color: diff > 0 ? 'var(--error)' : diff < 0 ? 'var(--primary-strong)' : undefined }}>
                 {diff > 0 ? '+' : ''}{money(diff)}{pct === null || pct === undefined ? '' : ` (${Number(pct) > 0 ? '+' : ''}${Number(pct).toFixed(2)}%)`}
               </strong>
             </SummaryCard>

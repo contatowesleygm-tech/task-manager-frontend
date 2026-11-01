@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, Sparkles, ThumbsUp, X } from 'lucide-react';
-import styled, { css, keyframes } from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 export type AlertVariant = 'error' | 'success' | 'info';
 
@@ -25,30 +25,17 @@ const Container = styled.div<{ $variant: AlertVariant }>`
   padding: 16px;
   margin-bottom: 16px;
   border: 1px solid;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(23, 38, 61, .06);
   animation: ${enter} .2s ease-out;
-  html[data-theme='dark'] & { color: var(--text); background: var(--surface-raised); border-color: var(--border); }
-  ${({ $variant }) => $variant === 'error' && css`
-    color: #8f2924;
-    background: linear-gradient(110deg, #fff5f3, #fff 90%);
-    border-color: #f3d4d0;
-  `}
-  ${({ $variant }) => $variant === 'success' && css`
-    color: #176b4d;
-    background: linear-gradient(110deg, #effaf5, #fff 90%);
-    border-color: #ceeadd;
-  `}
-  ${({ $variant }) => $variant === 'info' && css`
-    color: #2452a1;
-    background: linear-gradient(110deg, #f0f6ff, #fff 90%);
-    border-color: #d5e2fa;
-  `}
+  color: var(--text);
+  background: ${({ $variant }) => $variant === 'error' ? 'var(--error-soft)' : $variant === 'success' ? 'var(--success-soft)' : 'var(--info-soft)'};
+  border-color: ${({ $variant }) => $variant === 'error' ? 'var(--error-border)' : $variant === 'success' ? 'var(--success-border)' : 'var(--info-border)'};
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
-  @media (max-width: 520px) {
+  @media (max-width: 639px) {
     grid-template-columns: 36px minmax(0, 1fr) 30px;
     gap: 10px;
     padding: 13px;
@@ -60,13 +47,12 @@ const IconBadge = styled.span<{ $variant: AlertVariant }>`
   width: 42px;
   height: 42px;
   place-items: center;
-  border-radius: 12px;
-  ${({ $variant }) => $variant === 'error' && css`color: #c53e38; background: #ffe6e2;`}
-  ${({ $variant }) => $variant === 'success' && css`color: #14815e; background: #ddf7ec;`}
-  ${({ $variant }) => $variant === 'info' && css`color: #2164dc; background: #e3efff;`}
+  border-radius: var(--radius-lg);
+  color: ${({ $variant }) => $variant === 'error' ? 'var(--error)' : $variant === 'success' ? 'var(--success)' : 'var(--info)'};
+  background: var(--surface);
 
   svg { width: 21px; height: 21px; }
-  @media (max-width: 520px) { width: 36px; height: 36px; }
+  @media (max-width: 639px) { width: 36px; height: 36px; }
 `;
 
 const Copy = styled.div`
@@ -82,12 +68,12 @@ const DismissButton = styled.button`
   height: 30px;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   background: transparent;
   transition: background .15s ease, color .15s ease;
   &:hover { color: var(--text); background: var(--surface); }
-  &:focus-visible { outline: 3px solid #8fb4ff; outline-offset: 1px; }
+  &:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
   svg { width: 17px; height: 17px; }
 `;
 
@@ -102,25 +88,24 @@ const ToastContainer = styled.div<{ $variant: AlertVariant }>`
   gap: 14px;
   width: min(460px, calc(100vw - 32px));
   padding: 18px 18px 18px 20px;
-  border: 1px solid ${({ $variant }) => $variant === 'success' ? '#a9ddc2' : $variant === 'error' ? '#f0b8b2' : '#b8d0fb'};
-  border-radius: 18px;
-  color: ${({ $variant }) => $variant === 'success' ? '#176b4d' : $variant === 'error' ? '#8f2924' : '#2452a1'};
-  background: ${({ $variant }) => $variant === 'success' ? 'linear-gradient(135deg, #effaf5, #fff)' : $variant === 'error' ? 'linear-gradient(135deg, #fff5f3, #fff)' : 'linear-gradient(135deg, #f0f6ff, #fff)'};
+  border: 1px solid ${({ $variant }) => $variant === 'success' ? 'var(--success-border)' : $variant === 'error' ? 'var(--error-border)' : 'var(--info-border)'};
+  border-radius: var(--radius-xl);
+  color: var(--text);
+  background: ${({ $variant }) => $variant === 'success' ? 'var(--success-soft)' : $variant === 'error' ? 'var(--error-soft)' : 'var(--info-soft)'};
   box-shadow: 0 22px 70px rgba(20, 38, 66, .25);
   transform: translateX(-50%);
   animation: ${enter} .25s ease-out;
-  html[data-theme='dark'] & { color: var(--text); background: var(--surface); border-color: var(--border); }
   strong { display: block; font-size: 15px; line-height: 1.35; }
   p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-  @media (max-width: 520px) { grid-template-columns: 40px minmax(0, 1fr) 30px; gap: 10px; padding: 15px; }
+  @media (max-width: 639px) { grid-template-columns: 40px minmax(0, 1fr) 30px; gap: 10px; padding: 15px; }
 `;
 
 const ToastIcon = styled.span<{ $variant: AlertVariant }>`
-  display: grid; width: 48px; height: 48px; place-items: center; border-radius: 15px;
-  color: ${({ $variant }) => $variant === 'success' ? '#14815e' : $variant === 'error' ? '#c53e38' : '#2164dc'};
-  background: ${({ $variant }) => $variant === 'success' ? '#ddf7ec' : $variant === 'error' ? '#ffe6e2' : '#e3efff'};
+  display: grid; width: 48px; height: 48px; place-items: center; border-radius: var(--radius-xl);
+  color: ${({ $variant }) => $variant === 'success' ? 'var(--success)' : $variant === 'error' ? 'var(--error)' : 'var(--info)'};
+  background: var(--surface);
   svg { width: 25px; height: 25px; }
-  @media (max-width: 520px) { width: 40px; height: 40px; border-radius: 12px; }
+  @media (max-width: 639px) { width: 40px; height: 40px; border-radius: var(--radius-lg); }
 `;
 
 const icons = {
@@ -174,24 +159,23 @@ export function ActionToast({ variant, title, message, onDismiss }: AlertProps) 
 const CelebrationContainer = styled.div`
   position: fixed; z-index: 2100; top: 50%; left: 50%; display: grid; grid-template-columns: 76px minmax(0, 1fr) 30px;
   align-items: center; gap: 15px; width: min(440px, calc(100vw - 32px)); padding: 20px;
-  border: 1px solid #9cdec0; border-radius: 22px; background: linear-gradient(135deg, #effcf5, #fff);
-  box-shadow: 0 24px 80px rgba(20, 90, 61, .25); transform: translate(-50%, -50%); animation: ${enter} .3s ease-out;
-  strong { display: block; color: #176b4d; font-size: 17px; } p { margin: 5px 0 0; color: #52637b; font-size: 13px; line-height: 1.45; }
+  border: 1px solid var(--success-border); border-radius: var(--radius-xl); color: var(--text); background: var(--surface);
+  box-shadow: 0 24px 80px var(--shadow); transform: translate(-50%, -50%); animation: ${enter} .3s ease-out;
+  strong { display: block; color: var(--success); font-size: 17px; } p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
   @media (prefers-reduced-motion: reduce) { animation: none; }
 `;
 
 const CelebrationCharacter = styled.div`
-  position: relative; display: grid; width: 76px; height: 76px; place-items: center; color: #176b4d;
-  border: 5px solid #fff; border-radius: 50%; background: linear-gradient(145deg, #9ee5bf, #51bd8a);
-  box-shadow: 0 8px 18px rgba(20, 129, 94, .22); animation: ${enter} .45s ease-out both;
-  &::after { content: '👍'; position: absolute; right: -12px; bottom: -5px; display: grid; width: 30px; height: 30px; place-items: center; border: 3px solid #fff; border-radius: 50%; background: #ffd86b; font-size: 17px; animation: ${enter} .5s .12s ease-out both; }
+  position: relative; display: grid; width: 76px; height: 76px; place-items: center; color: var(--success);
+  border: 5px solid var(--surface); border-radius: 50%; background: var(--success-soft);
+  box-shadow: 0 8px 18px var(--shadow); animation: ${enter} .45s ease-out both;
   svg { width: 39px; height: 39px; stroke-width: 2.5; }
 `;
 
 export function CelebrationToast({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return <CelebrationContainer role="status" aria-live="polite">
     <CelebrationCharacter><Sparkles size={18} style={{ position: 'absolute', top: -12, right: -5 }} /><ThumbsUp /></CelebrationCharacter>
-    <div><strong>Mandou bem! 🎉</strong><p>{message}</p></div>
+    <div><strong>Mandou bem!</strong><p>{message}</p></div>
     {onDismiss && <DismissButton type="button" onClick={onDismiss} aria-label="Fechar comemoração"><X aria-hidden="true" /></DismissButton>}
   </CelebrationContainer>;
 }

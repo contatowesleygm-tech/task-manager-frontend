@@ -1,7 +1,12 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const appear = keyframes`
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
 
 const Overlay = styled.div`
   position: fixed;
@@ -20,11 +25,14 @@ const Card = styled.section`
   overflow-y: auto;
   padding: 24px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   color: var(--text);
   background: var(--surface);
   box-shadow: 0 24px 70px var(--shadow);
-  @media (max-width: 620px) { width: calc(100vw - 20px); padding: 18px; max-height: 92vh; }
+  animation: ${appear} var(--transition-normal);
+  &:focus { outline: none; }
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+  @media (max-width: 639px) { width: calc(100vw - 20px); padding: 18px; max-height: 92vh; }
 `;
 
 const Header = styled.div`
@@ -43,7 +51,7 @@ const Close = styled.button`
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--muted);
   background: var(--surface-raised);
   cursor: pointer;
@@ -61,18 +69,42 @@ interface ModalProps {
 
 export default function Modal({ open, title, icon, busy = false, onClose, children }: ModalProps) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     const closeWithEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !busy) onClose();
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     const previousOverflow = document.body.style.overflow;
     document.addEventListener('keydown', closeWithEscape);
     document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', closeWithEscape);
       document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
     };
   }, [open, busy, onClose]);
 
@@ -80,7 +112,7 @@ export default function Modal({ open, title, icon, busy = false, onClose, childr
 
   return createPortal(
     <Overlay role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <Card role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <Card ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <Header>
           <h2 id={titleId}>{icon}{title}</h2>
           <Close type="button" aria-label="Fechar janela" title="Fechar (Esc)" onClick={onClose} disabled={busy}><X size={18} /></Close>

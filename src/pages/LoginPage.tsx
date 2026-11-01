@@ -41,8 +41,8 @@ const LoginScreen = styled.main`
   place-items: center;
   padding: 32px 18px;
   background:
-    radial-gradient(ellipse at 16% 14%, rgba(167, 146, 255, .28), transparent 38%),
-    radial-gradient(ellipse at 88% 90%, rgba(199, 232, 91, .2), transparent 35%),
+    radial-gradient(ellipse at 16% 14%, rgba(37, 99, 235, .1), transparent 38%),
+    radial-gradient(ellipse at 88% 90%, rgba(2, 132, 199, .06), transparent 35%),
     var(--page-bg);
 `;
 
@@ -56,7 +56,7 @@ const LoginCard = styled.section<{ $wide?: boolean }>`
   width: min(100%, ${({ $wide }) => ($wide ? '560px' : '440px')});
   padding: 38px;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: 0 24px 70px var(--shadow);
   transition: width .2s ease;
@@ -80,9 +80,9 @@ const BrandIcon = styled.span`
   height: 42px;
   place-items: center;
   border-radius: 13px;
-  color: #fff;
-  background: linear-gradient(145deg, #8669ed, #6347ca);
-  box-shadow: 0 7px 16px rgba(112, 84, 216, .28);
+  color: var(--primary-contrast);
+  background: var(--primary);
+  box-shadow: 0 7px 16px var(--shadow);
   svg { width: 23px; height: 23px; }
 `;
 
@@ -101,7 +101,7 @@ const Field = styled.label`
   display: grid;
   gap: 8px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 `;
 
@@ -140,7 +140,7 @@ const PasswordToggle = styled.button`
   color: var(--muted);
   background: transparent;
   &:hover { color: var(--text); background: var(--surface-raised); }
-  &:focus-visible { outline: 3px solid #8fb4ff; }
+  &:focus-visible { outline: 3px solid var(--focus); }
   svg { width: 18px; height: 18px; }
 `;
 
@@ -223,9 +223,9 @@ const PlanBadge = styled.span`
   align-items: center;
   gap: 4px;
   padding: 3px 7px;
-  border-radius: 999px;
-  color: #2f3b12;
-  background: #c7e85b;
+  border-radius: var(--radius-full);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
   font-size: 10px;
   font-weight: 800;
   svg { width: 11px; height: 11px; }
@@ -259,7 +259,7 @@ const PlainInput = styled.input`
   height: 44px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   outline: none;
   color: var(--text);
   background: var(--surface);
@@ -295,11 +295,10 @@ const SubmitButton = styled(Button)`
   min-height: 48px;
   margin-top: 3px;
   border-radius: 10px;
-  background: linear-gradient(100deg, #8063e8, #6547ca);
-  color: white;
+  background: var(--primary);
+  color: var(--primary-contrast);
   font-size: 14px;
-  box-shadow: 0 7px 16px rgba(112, 84, 216, .25);
-  &:hover:not(:disabled) { background: linear-gradient(100deg, #7356d7, #583cb9); }
+  &:hover:not(:disabled) { background: var(--primary-strong); }
 `;
 
 const Footer = styled.p`
@@ -317,7 +316,7 @@ const Footer = styled.p`
     font-weight: 700;
   }
   button:hover { text-decoration: underline; }
-  button:focus-visible { outline: 3px solid #8fb4ff; outline-offset: 3px; border-radius: 2px; }
+  button:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
 `;
 
 function onlyDigits(value: string) {

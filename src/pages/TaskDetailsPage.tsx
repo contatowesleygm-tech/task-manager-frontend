@@ -153,7 +153,7 @@ export default function TaskDetailsPage({
               </Field>
             </TwoFields>
             <PanelTitle style={{ marginTop: 8, marginBottom: 6 }}>
-              Itens da tarefa * <ListChecks size={15} color="#7b8ba3" />
+              Itens da tarefa * <ListChecks size={15} color="var(--muted)" />
             </PanelTitle>
             <Muted>Adicione as atividades que você quer acompanhar.</Muted>
             <ItemEditor>

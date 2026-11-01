@@ -17,6 +17,8 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = mode;
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', mode === 'dark' ? '#0B1120' : '#F8FAFC');
     localStorage.setItem(storageKey, mode);
   }, [mode]);
 

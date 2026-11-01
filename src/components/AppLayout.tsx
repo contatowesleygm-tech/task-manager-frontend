@@ -1,5 +1,5 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
-import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, ChevronDown, Flag, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
+import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Flag, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import styled from 'styled-components';
 import {
@@ -31,44 +31,58 @@ const defaultMenuItems: MenuItem[] = [
 ];
 
 const menuStorageKey = 'task-manager-menu-order';
+const sidebarCollapsedStorageKey = 'task-manager-sidebar-collapsed';
 const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends']);
 
 const TopbarLogout = styled.button`
-  display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 8px 12px; border: 1px solid #efc7c1; border-radius: 9px;
-  color: #a63d47; background: #fff0ed; font-size: 12px; font-weight: 800; cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease;
-  html[data-theme='dark'] & { color: #ffaaa9; background: #39232b; border-color: #5c333b; }
-  &:hover { border-color: #e9aaa2; background: #ffe4df; transform: translateY(-1px); }
-  html[data-theme='dark'] &:hover { border-color: #75434c; background: #452a30; }
-  &:focus-visible { outline: 3px solid #ffc2bd; outline-offset: 2px; }
+  display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--error-border); border-radius: var(--radius-md);
+  color: var(--error); background: var(--error-soft); font-size: 12px; font-weight: 700; cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+  &:hover { border-color: var(--error); filter: brightness(.97); transform: translateY(-1px); }
   svg { width: 16px; height: 16px; }
-  @media (max-width: 520px) { padding: 8px 10px; font-size: 0; svg { width: 17px; height: 17px; } }
+  @media (max-width: 639px) { padding: 8px 10px; font-size: 0; svg { width: 17px; height: 17px; } }
+`;
+
+const SidebarCollapseButton = styled.button<{ $collapsed?: boolean }>`
+  display: inline-flex; align-items: center; justify-content: ${({ $collapsed }) => $collapsed ? 'center' : 'flex-end'};
+  align-self: ${({ $collapsed }) => $collapsed ? 'stretch' : 'flex-end'};
+  gap: 7px; min-height: 40px; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--muted); background: var(--surface); font-size: 11px; font-weight: 600;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  &:hover { color: var(--primary-strong); border-color: var(--primary); background: var(--primary-soft); }
+  svg { width: 16px; height: 16px; }
+  .collapse-label { display: ${({ $collapsed }) => $collapsed ? 'none' : 'inline'}; }
+  @media (max-width: 639px) { display: none; }
 `;
 
 const FinanceNavGroup = styled.div`
   display: grid;
+  position: relative;
   gap: 5px;
   min-width: 0;
 `;
 
-const FinanceNavToggle = styled(NavButton)`
+const FinanceNavToggle = styled(NavButton)<{ $collapsed?: boolean }>`
   justify-content: space-between;
-  &:hover { transform: none; }
-  &[aria-expanded='true'] { color: #fff; background: rgba(255, 255, 255, .09); }
+  &[aria-expanded='true'] { color: var(--primary-strong); background: var(--primary-soft); }
   .finance-chevron { width: 15px; height: 15px; flex: 0 0 auto; transition: transform .15s ease; }
+  ${({ $collapsed }) => $collapsed && 'justify-content: center; .nav-label { display: none; } .finance-chevron { display: none; }'}
+  @media (max-width: 639px) { justify-content: space-between; ${({ $collapsed }) => $collapsed && '.nav-label { display: inline-flex; } .finance-chevron { display: block; }'} }
 `;
 
-const FinanceSubNav = styled.div`
+const FinanceSubNav = styled.div<{ $collapsed?: boolean }>`
   display: grid;
   gap: 4px;
   padding-left: 10px;
   margin-left: 14px;
-  border-left: 1px solid rgba(255, 255, 255, .2);
+  border-left: 1px solid var(--border);
+  ${({ $collapsed }) => $collapsed && 'padding: 0; margin: 0; border: 0;'}
+  @media (max-width: 639px) { position: absolute; z-index: 10; top: calc(100% + 6px); left: 14px; min-width: 190px; padding: 8px; margin: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-raised); }
 `;
 
 const FinanceSubNavButton = styled(NavButton)`
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   font-size: 12px;
   svg { width: 16px; height: 16px; }
 `;
@@ -92,9 +106,9 @@ const ArchiveRow = styled.div`
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
-  @media (max-width: 520px) {
+  @media (max-width: 639px) {
     grid-template-columns: 34px minmax(0, 1fr) auto;
     > button { grid-column: 2 / -1; justify-self: end; }
   }
@@ -105,7 +119,7 @@ const ArchivePageIcon = styled.span`
   width: 34px;
   height: 34px;
   place-items: center;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--primary-strong);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   svg { width: 17px; height: 17px; }
@@ -121,7 +135,7 @@ const ArchivePageName = styled.strong`
 const PageStateBadge = styled.span<{ $archived: boolean }>`
   padding: 5px 8px;
   border: 1px solid ${({ $archived }) => $archived ? 'var(--border)' : 'var(--success-border)'};
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   color: ${({ $archived }) => $archived ? 'var(--muted)' : 'var(--success)'};
   background: ${({ $archived }) => $archived ? 'var(--surface)' : 'var(--success-soft)'};
   font-size: 10px;
@@ -137,7 +151,7 @@ const ArchivePageAction = styled.button<{ $restore?: boolean }>`
   min-height: 34px;
   padding: 6px 9px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: ${({ $restore }) => $restore ? 'var(--primary-strong)' : 'var(--muted)'};
   background: var(--surface);
   font-size: 11px;
@@ -160,7 +174,7 @@ const ArchiveFooter = styled.div`
   margin-top: 14px;
   color: var(--muted);
   font-size: 11px;
-  @media (max-width: 520px) { align-items: flex-start; flex-direction: column; }
+  @media (max-width: 639px) { align-items: flex-start; flex-direction: column; }
 `;
 
 function loadMenuItems(): MenuItem[] {
@@ -170,6 +184,14 @@ function loadMenuItems(): MenuItem[] {
     return [...ordered, ...defaultMenuItems.filter(item => !saved.includes(item.id))];
   } catch {
     return defaultMenuItems;
+  }
+}
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(sidebarCollapsedStorageKey) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -211,6 +233,7 @@ export default function AppLayout({
   const [archivedPageIds, setArchivedPageIds] = useState(() => loadArchivedPages(user.id));
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [financeMenuOpen, setFinanceMenuOpen] = useState(() => financeMenuItemIds.has(page));
   const visibleMenuItems = menuItems.filter(item => !archivedPageIds.includes(item.id));
   const visibleFinanceItems = visibleMenuItems.filter(item => financeMenuItemIds.has(item.id));
@@ -258,6 +281,18 @@ export default function AppLayout({
     }
   }
 
+  function toggleSidebar() {
+    setSidebarCollapsed(collapsed => {
+      const next = !collapsed;
+      try {
+        localStorage.setItem(sidebarCollapsedStorageKey, String(next));
+      } catch {
+        /* The current session can still use the selected sidebar width. */
+      }
+      return next;
+    });
+  }
+
   function handleDragStart(event: DragEvent<HTMLButtonElement>, id: string) {
     setDraggedId(id);
     event.dataTransfer.effectAllowed = 'move';
@@ -289,8 +324,10 @@ export default function AppLayout({
       <Link
         key={item.id}
         $active={isActive}
+        $collapsed={sidebarCollapsed}
         draggable
-        title="Arraste para mudar a posição"
+        title={sidebarCollapsed ? item.label : 'Arraste para mudar a posição'}
+        aria-label={nested && item.id === 'finances' ? 'Finanças — visão geral' : item.label}
         onDragStart={event => handleDragStart(event, item.id)}
         onDragOver={event => event.preventDefault()}
         onDrop={event => handleDrop(event, item.id)}
@@ -299,34 +336,46 @@ export default function AppLayout({
         aria-current={page === item.page ? 'page' : undefined}
         onClick={() => onNavigate(item.path)}
       >
-        <Icon />{nested && item.id === 'finances' ? 'Visão geral' : item.label}
+        <Icon /><span className="nav-label">{nested && item.id === 'finances' ? 'Visão geral' : item.label}</span>
       </Link>
     );
   }
 
   return (
     <Layout>
-      <Sidebar>
-        <Brand>
+      <Sidebar $collapsed={sidebarCollapsed}>
+        <Brand $collapsed={sidebarCollapsed}>
           <CheckSquare />
           <span className="brand-copy">
             <strong>Rumo</strong>
             <small>Organize hoje. Avance no seu ritmo.</small>
           </span>
         </Brand>
-        <Nav aria-label="Navegação principal">
+        <SidebarCollapseButton
+          type="button"
+          $collapsed={sidebarCollapsed}
+          aria-label={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="primary-navigation"
+          title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          onClick={toggleSidebar}
+        >
+          {sidebarCollapsed ? <ChevronRight aria-hidden="true" /> : <><ChevronLeft aria-hidden="true" /><span className="collapse-label">Recolher menu</span></>}
+        </SidebarCollapseButton>
+        <Nav id="primary-navigation" aria-label="Navegação principal">
           {sidebarMenuItems.map(item => item.id !== 'finances' ? renderMenuItem(item) : (
             <FinanceNavGroup key="finance-group">
               <FinanceNavToggle
                 type="button"
                 $active={false}
+                $collapsed={sidebarCollapsed}
                 aria-expanded={financeMenuOpen}
                 aria-controls="finance-subnav"
+                aria-label="Finanças"
+                title={sidebarCollapsed ? 'Finanças' : undefined}
                 onClick={() => setFinanceMenuOpen(open => !open)}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 13 }}>
-                  <Banknote />Finanças
-                </span>
+                <Banknote /><span className="nav-label">Finanças</span>
                 <ChevronDown
                   className="finance-chevron"
                   aria-hidden="true"
@@ -334,7 +383,7 @@ export default function AppLayout({
                 />
               </FinanceNavToggle>
               {financeMenuOpen && (
-                <FinanceSubNav id="finance-subnav">
+                <FinanceSubNav id="finance-subnav" $collapsed={sidebarCollapsed}>
                   {visibleFinanceItems.map(financeItem => renderMenuItem(financeItem, true))}
                 </FinanceSubNav>
               )}
@@ -342,9 +391,9 @@ export default function AppLayout({
           ))}
         </Nav>
         <div style={{ marginTop: 'auto' }}>
-          <NavButton type="button" $active={settingsOpen} onClick={() => setSettingsOpen(true)}>
-            <Settings />Configurações
-            {archivedPageIds.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11 }}>{archivedPageIds.length}</span>}
+          <NavButton type="button" $active={settingsOpen} $collapsed={sidebarCollapsed} aria-label="Configurações" title={sidebarCollapsed ? 'Configurações' : undefined} onClick={() => setSettingsOpen(true)}>
+            <Settings /><span className="nav-label">Configurações</span>
+            {!sidebarCollapsed && archivedPageIds.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 11 }}>{archivedPageIds.length}</span>}
           </NavButton>
         </div>
       </Sidebar>

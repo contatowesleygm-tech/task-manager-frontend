@@ -89,7 +89,7 @@ const MetaItem = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  svg { width: 14px; height: 14px; color: #91a0b4; }
+  svg { width: 14px; height: 14px; color: var(--text-subtle); }
 `;
 
 const ProgressSummary = styled.div`

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import styled from 'styled-components';
 import {
-  Button, EmptyState, Field, Modal, Panel, PanelTitle, ProgressTrack,
+  Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero, ProgressTrack,
 } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import {
@@ -24,36 +24,11 @@ const Page = styled.div`
   gap: 20px;
 `;
 
-const Hero = styled.section`
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-  overflow: hidden;
-  padding: clamp(22px, 4vw, 36px);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 25%),
-    linear-gradient(120deg, color-mix(in srgb, var(--primary) 18%, var(--surface)), var(--surface));
-  box-shadow: 0 12px 32px var(--shadow);
-  &::after { position: absolute; right: 9%; bottom: -90px; width: 220px; height: 220px; border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent); border-radius: 50%; content: ''; }
-  @media (max-width: 650px) { align-items: stretch; flex-direction: column; }
-`;
-
 const HeroCopy = styled.div`
-  position: relative;
-  z-index: 1;
   max-width: 620px;
-  > span { display: inline-flex; align-items: center; gap: 7px; color: var(--primary-strong); font-size: 11px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-  h1 { margin: 14px 0 8px; color: var(--text); font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; }
-  p { max-width: 520px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
 `;
 
 const HeroActions = styled.div`
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
@@ -120,7 +95,7 @@ const Bar = styled.div<{ $height: number; $today: boolean }>`
   height: ${({ $height }) => `${$height}%`};
   min-height: 3px;
   border-radius: 8px 8px 3px 3px;
-  background: ${({ $today }) => $today ? 'var(--accent)' : 'var(--primary)'};
+  background: ${({ $today }) => $today ? 'var(--primary-strong)' : 'var(--primary)'};
   box-shadow: 0 5px 12px color-mix(in srgb, var(--primary) 18%, transparent);
   transition: height .25s ease;
 `;
@@ -203,10 +178,9 @@ const StatusPill = styled.span<{ $status: EnglishStudyStatus }>`
   align-items: center;
   gap: 5px;
   padding: 6px 9px;
-  border-radius: 999px;
-  color: ${({ $status }) => $status === 'concluido' ? '#14815e' : $status === 'cancelado' ? '#a63d47' : 'var(--primary-strong)'};
-  background: ${({ $status }) => $status === 'concluido' ? '#ddf7ec' : $status === 'cancelado' ? '#fff0ed' : 'color-mix(in srgb, var(--primary) 16%, var(--surface))'};
-  html[data-theme='dark'] & { color: ${({ $status }) => $status === 'concluido' ? '#8de0b8' : $status === 'cancelado' ? '#ffaaa3' : 'var(--primary-strong)'}; background: ${({ $status }) => $status === 'concluido' ? '#1e3a31' : $status === 'cancelado' ? '#39232b' : 'color-mix(in srgb, var(--primary) 20%, var(--surface))'}; }
+  border-radius: var(--radius-full);
+  color: ${({ $status }) => $status === 'concluido' ? 'var(--success)' : $status === 'cancelado' ? 'var(--error)' : 'var(--primary-strong)'};
+  background: ${({ $status }) => $status === 'concluido' ? 'var(--success-soft)' : $status === 'cancelado' ? 'var(--error-soft)' : 'var(--primary-soft)'};
   font-size: 10px;
   font-weight: 800;
 `;
@@ -227,8 +201,7 @@ const IconButton = styled.button`
   color: var(--muted);
   background: var(--surface-raised);
   &:hover { color: var(--primary); border-color: var(--primary); }
-  &[data-danger='true']:hover { color: #c53e38; background: #fff3f2; }
-  html[data-theme='dark'] &[data-danger='true']:hover { color: #ffaaa3; background: #39232b; }
+  &[data-danger='true']:hover { color: var(--error); background: var(--error-soft); }
   svg { width: 15px; height: 15px; }
 `;
 
@@ -494,7 +467,7 @@ export default function EnglishStudyPage({ onNavigate }: Props) {
 
   return (
     <Page>
-      <Hero>
+      <PageHero>
         <HeroCopy>
           <span><Languages size={14} /> English study tracker</span>
           <h1>Seu inglês, em evolução.</h1>
@@ -504,9 +477,9 @@ export default function EnglishStudyPage({ onNavigate }: Props) {
           <Button type="button" onClick={() => onNavigate('/study-resources')}><BookOpen />Biblioteca</Button>
           <Button type="button" $variant="primary" onClick={openCreateForm}><Plus />Nova sessão</Button>
         </HeroActions>
-      </Hero>
+      </PageHero>
 
-      {error && <Panel role="alert" style={{ color: '#c53e38', padding: 14 }}>{error}</Panel>}
+      {error && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{error}</Panel>}
       {notice && <Panel role="status" style={{ color: 'var(--primary-strong)', padding: 14 }}>{notice}</Panel>}
 
       <SummaryGrid aria-label="Resumo do progresso de inglês">

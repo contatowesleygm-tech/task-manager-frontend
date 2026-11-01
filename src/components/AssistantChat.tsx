@@ -20,13 +20,13 @@ const ChatButton = styled.button`
   padding: 0 17px;
   border: 0;
   border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, #286fe5, #6747c7);
-  box-shadow: 0 10px 26px rgba(57, 77, 180, .3);
+  color: var(--primary-contrast);
+  background: var(--primary);
+  box-shadow: 0 10px 26px var(--shadow);
   font-weight: 800;
   cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease;
-  &:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(57, 77, 180, .38); }
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  &:hover { background: var(--primary-strong); transform: translateY(-1px); box-shadow: 0 14px 30px var(--shadow); }
   svg { width: 19px; height: 19px; }
 `;
 
@@ -49,10 +49,10 @@ const ChatHeader = styled.header`
   justify-content: space-between;
   gap: 12px;
   padding: 16px 17px;
-  color: #fff;
-  background: linear-gradient(135deg, #1f5dc4, #5b42af);
+  color: var(--primary-contrast);
+  background: var(--primary);
   h2 { margin: 0; font-size: 15px; }
-  p { margin: 3px 0 0; color: #dce8ff; font-size: 11px; }
+  p { margin: 3px 0 0; color: color-mix(in srgb, var(--primary-contrast) 76%, var(--primary)); font-size: 11px; }
 `;
 
 const HeaderIdentity = styled.div`
@@ -64,8 +64,8 @@ const HeaderIdentity = styled.div`
 `;
 
 const CloseButton = styled.button`
-  display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; color: #fff; background: rgba(255,255,255,.12); cursor: pointer;
-  &:hover { background: rgba(255,255,255,.22); }
+  display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; color: var(--primary-contrast); background: color-mix(in srgb, var(--primary-contrast) 14%, var(--primary)); cursor: pointer;
+  &:hover { background: color-mix(in srgb, var(--primary-contrast) 22%, var(--primary)); }
   svg { width: 17px; height: 17px; }
 `;
 
@@ -106,14 +106,13 @@ const Composer = styled.form`
   padding: 12px;
   background: var(--surface);
   textarea { min-height: 42px; max-height: 100px; flex: 1; resize: none; padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; outline: none; color: var(--text); background: var(--surface-raised); font-size: 12px; &:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus); } }
-  button { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 11px; color: #fff; background: var(--primary); cursor: pointer; &:disabled { opacity: .55; cursor: not-allowed; } svg { width: 17px; height: 17px; } }
+  button { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 11px; color: var(--primary-contrast); background: var(--primary); cursor: pointer; &:disabled { opacity: .55; cursor: not-allowed; } svg { width: 17px; height: 17px; } }
 `;
 
 const EmptyChat = styled.div`
-  display: grid; place-items: center; gap: 8px; min-height: 100%; padding: 28px; text-align: center; color: #71819a; font-size: 12px;
+  display: grid; place-items: center; gap: 8px; min-height: 100%; padding: 28px; text-align: center; color: var(--muted); font-size: 12px;
   svg { color: var(--primary); }
   strong { color: var(--text); font-size: 14px; }
-  html[data-theme='dark'] & { color: var(--muted); }
   p { margin: 0; line-height: 1.5; }
 `;
 

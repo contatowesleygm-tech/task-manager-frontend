@@ -83,8 +83,8 @@ const EventIcon = styled.div<{ $type: ScheduleEventType }>`
   height: 46px;
   place-items: center;
   border-radius: 13px;
-  color: ${({ $type }) => $type === 'aniversario' ? '#a65c13' : $type === 'lembrete' ? '#2164dc' : '#14815e'};
-  background: ${({ $type }) => $type === 'aniversario' ? '#fff4e5' : $type === 'lembrete' ? '#e9f1ff' : '#e6f7ef'};
+  color: ${({ $type }) => $type === 'aniversario' ? 'var(--warning)' : $type === 'lembrete' ? 'var(--info)' : 'var(--success)'};
+  background: ${({ $type }) => $type === 'aniversario' ? 'var(--warning-soft)' : $type === 'lembrete' ? 'var(--info-soft)' : 'var(--success-soft)'};
   svg { width: 21px; height: 21px; }
   @media (max-width: 620px) { width: 40px; height: 40px; }
 `;
@@ -124,7 +124,7 @@ const IconButton = styled.button`
   cursor: pointer;
   &:disabled { opacity: .55; cursor: not-allowed; }
   &:hover { color: var(--primary); background: var(--surface); }
-  &[data-danger='true']:hover { color: #c53e38; background: #fff3f2; }
+  &[data-danger='true']:hover { color: var(--error); background: var(--error-soft); }
   svg { width: 16px; height: 16px; }
 `;
 
@@ -194,11 +194,10 @@ const AlertReason = styled.span`
   align-items: center;
   border-radius: 999px;
   padding: 5px 9px;
-  color: #9a4c12;
-  background: #fff2df;
+  color: var(--warning);
+  background: var(--warning-soft);
   font-size: 11px;
   font-weight: 700;
-  html[data-theme='dark'] & { color: #f3c477; background: #453821; }
 `;
 
 const AlertPanel = styled(Panel)`
@@ -532,7 +531,7 @@ export default function SchedulePage({
       <div ref={alertsSectionRef} id="agenda-alertas">
       <AlertPanel>
         <PanelTitle>
-          <BellRing size={19} color="#b96512" />
+          <BellRing size={19} color="var(--warning)" />
           Alertas {alertPagination.total > 0 && `(${alertPagination.total})`}
         </PanelTitle>
         {alertsLoading ? (
@@ -624,7 +623,7 @@ export default function SchedulePage({
           <EventForm role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" onMouseDown={event => event.stopPropagation()}>
           <ModalHeader>
           <PanelTitle id="schedule-modal-title">
-            {editingEvent ? <Pencil size={19} color="#2164dc" /> : <Bell size={19} color="#2164dc" />}
+            {editingEvent ? <Pencil size={19} color="var(--primary)" /> : <Bell size={19} color="var(--primary)" />}
             {editingEvent ? 'Editar agendamento' : 'Criar agendamento'}
           </PanelTitle>
           <ModalClose type="button" aria-label="Fechar janela" title="Fechar (Esc)" onClick={resetForm} disabled={saving}><X size={18} /></ModalClose>
@@ -726,7 +725,7 @@ export default function SchedulePage({
       )}
 
       <Panel>
-        <PanelTitle><CalendarDays size={19} color="#2164dc" />Consultar agendamentos</PanelTitle>
+        <PanelTitle><CalendarDays size={19} color="var(--primary)" />Consultar agendamentos</PanelTitle>
         <form onSubmit={applyFilter}>
           <Filters>
             <Field>Consulta
@@ -787,7 +786,7 @@ export default function SchedulePage({
               Consultar
             </Button>
           </Filters>
-          {filterError && <p role="alert" style={{ marginTop: 10, color: '#c53e38', fontSize: 12 }}>{filterError}</p>}
+            {filterError && <p role="alert" style={{ marginTop: 10, color: 'var(--error)', fontSize: 12 }}>{filterError}</p>}
         </form>
 
         {loading ? (

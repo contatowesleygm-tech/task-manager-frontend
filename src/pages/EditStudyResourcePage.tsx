@@ -124,7 +124,7 @@ export default function EditStudyResourcePage({ resource, loading, saving, onBac
       </PageTitle>
       <Columns>
         <Panel>
-          <PanelTitle><BookOpen size={19} color="#2164dc" />Dados e conteúdo</PanelTitle>
+          <PanelTitle><BookOpen size={19} color="var(--primary)" />Dados e conteúdo</PanelTitle>
           <form onSubmit={event => { void submit(event); }}>
             <FormGrid>
               <Field>
@@ -162,7 +162,7 @@ export default function EditStudyResourcePage({ resource, loading, saving, onBac
                 ariaLabel="Conteúdo do material"
               />
             </Field>
-            {formError && <p role="alert" style={{ color: '#c53e38', fontSize: 12 }}>{formError}</p>}
+            {formError && <p role="alert" style={{ color: 'var(--error)', fontSize: 12 }}>{formError}</p>}
             <FooterActions>
               <Button type="button" onClick={onBack}>Cancelar</Button>
               <Button type="submit" $variant="primary" disabled={saving}>
@@ -194,7 +194,7 @@ export default function EditStudyResourcePage({ resource, loading, saving, onBac
                   <img src={url.trim()} alt={title.trim() || 'Material'} />
                 </MediaFrame>
               ) : null}
-              <a href={url.trim()} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 18, color: '#2164dc', fontSize: 13, overflowWrap: 'anywhere' }}>
+              <a href={url.trim()} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 18, color: 'var(--primary)', fontSize: 13, overflowWrap: 'anywhere' }}>
                 <ExternalLink size={14} />Abrir URL
               </a>
             </>

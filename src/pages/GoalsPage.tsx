@@ -955,12 +955,6 @@ const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' }>`
     ? 'var(--success-soft)'
     : 'color-mix(in srgb, var(--primary) 13%, var(--surface))')};
   color: ${({ $tone }) => ($tone === 'green' ? 'var(--success)' : 'var(--primary-strong)')};
-  html[data-theme='dark'] & {
-    color: ${({ $tone }) => ($tone === 'green' ? 'var(--success)' : 'var(--primary-strong)')};
-    background: ${({ $tone }) => ($tone === 'green'
-      ? 'var(--success-soft)'
-      : 'color-mix(in srgb, var(--primary) 19%, var(--surface))')};
-  }
   svg {
     width: 19px;
     height: 19px;

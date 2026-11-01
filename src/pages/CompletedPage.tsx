@@ -38,12 +38,6 @@ const SummaryIcon = styled.span<{ $tone: 'blue' | 'green' }>`
   background: ${({ $tone }) => $tone === 'green'
     ? 'var(--success-soft)'
     : 'color-mix(in srgb, var(--primary) 13%, var(--surface))'};
-  html[data-theme='dark'] & {
-    color: ${({ $tone }) => $tone === 'green' ? 'var(--success)' : 'var(--primary-strong)'};
-    background: ${({ $tone }) => $tone === 'green'
-      ? 'var(--success-soft)'
-      : 'color-mix(in srgb, var(--primary) 19%, var(--surface))'};
-  }
   svg { width: 19px; height: 19px; }
 `;
 
@@ -57,8 +51,8 @@ const CompletedTask = styled.article`
   gap: 10px;
   padding: 17px 18px;
   border: 1px solid var(--success-border);
-  border-left: 3px solid #35a574;
-  border-radius: 12px;
+  border-left: 3px solid var(--success);
+  border-radius: var(--radius-lg);
   background: linear-gradient(135deg, color-mix(in srgb, var(--success) 4%, var(--surface)), var(--surface));
   box-shadow: 0 5px 18px var(--shadow);
 `;

@@ -77,7 +77,7 @@ export default function CreateTaskPage({
       <PageTitle><div><h1>Nova tarefa</h1><p>Organize seu dia adicionando tarefas e atividades.</p></div></PageTitle>
       <Columns>
         <Panel>
-          <PanelTitle><Plus size={19} color="#2164dc" /> Criar tarefa</PanelTitle>
+          <PanelTitle><Plus size={19} color="var(--primary)" /> Criar tarefa</PanelTitle>
           <form onSubmit={event => void handleSubmit(event)}>
             <Field>Título da tarefa *
               <input value={title} onChange={event => setTitle(event.target.value)} maxLength={200} placeholder="Ex.: Estudar programação" required />
@@ -108,7 +108,7 @@ export default function CreateTaskPage({
               </Field>
             </TwoFields>
             <PanelTitle style={{ marginTop: 8, marginBottom: 6 }}>
-              Itens da tarefa * <CircleHelp size={15} color="#7b8ba3" />
+              Itens da tarefa * <CircleHelp size={15} color="var(--muted)" />
             </PanelTitle>
             <Muted>Adicione as atividades que você quer acompanhar.</Muted>
             <ItemEditor>
