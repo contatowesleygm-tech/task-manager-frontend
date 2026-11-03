@@ -25,6 +25,7 @@ import FinancesPage from '../pages/FinancesPage';
 import EnglishStudyPage from '../pages/EnglishStudyPage';
 import ExpensesPage from '../pages/ExpensesPage';
 import DividendsPage from '../pages/DividendsPage';
+import OpportunitiesPage from '../pages/OpportunitiesPage';
 import TaskDetailsPage from '../pages/TaskDetailsPage';
 import TasksPage from '../pages/TasksPage';
 import TodayPage from '../pages/TodayPage';
@@ -475,7 +476,7 @@ export default function AppRoutes() {
       void loadFinances();
     } else if (page === 'list') {
       void loadTasks(taskPage, taskLimit);
-    } else if (page !== 'login' && page !== 'english-study' && page !== 'expenses' && page !== 'dividends' && page !== 'study-resource-edit') {
+    } else if (page !== 'login' && page !== 'english-study' && page !== 'expenses' && page !== 'dividends' && page !== 'opportunities' && page !== 'study-resource-edit') {
       void loadTasks(1, 100);
     }
   }, [authReady, authUser, page, taskPage, taskLimit, scheduleQuery, schedulePage, studyResourcePage, studyResourceFilters, loadTasks, loadToday, loadWeek, loadMonth, loadCompleted, loadGoals, loadSchedule, loadScheduleAlerts, loadStudyResources, loadFinances]);
@@ -1189,6 +1190,9 @@ export default function AppRoutes() {
       break;
     case 'dividends':
       content = <DividendsPage />;
+      break;
+    case 'opportunities':
+      content = <OpportunitiesPage />;
       break;
     case 'expenses':
       content = <ExpensesPage />;

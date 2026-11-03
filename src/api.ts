@@ -9,6 +9,7 @@ import type {
   FinanceAccount, FinanceAccountPayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
   DividendAssetTypeOption, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
+  MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
 } from './types';
 
@@ -190,6 +191,60 @@ export async function getDividendHolding(id: TaskId): Promise<DividendHolding> {
 export async function getDividendPortfolio(): Promise<DividendPortfolio> {
   const response = await api.get<{ data: DividendPortfolio }>('/dividends/portfolio');
   return response.data.data;
+}
+
+const ratingMeta: Record<OpportunityRating, true> = { otimo: true, bom: true, neutro: true, atencao: true, evitar: true };
+
+export function ratingFromScore(score: number): OpportunityRating {
+  if (score >= 80) return 'otimo';
+  if (score >= 65) return 'bom';
+  if (score >= 45) return 'neutro';
+  if (score >= 30) return 'atencao';
+  return 'evitar';
+}
+
+function normalizeOpportunityItem(raw: Record<string, unknown>, index: number): MarketOpportunityItem {
+  const score = Math.min(100, Math.max(0, Number(raw.score) || 0));
+  const rating = String(raw.rating ?? '') as OpportunityRating;
+  const ticker = raw.ticker ? String(raw.ticker) : undefined;
+  const label = String(raw.label ?? ticker ?? raw.id ?? `Item ${index + 1}`);
+  const topAssets = Array.isArray(raw.top_assets) ? raw.top_assets.map(String) : undefined;
+  return {
+    id: String(raw.id ?? ticker ?? `${label}-${index}`),
+    label,
+    ticker,
+    class_id: raw.id && !ticker ? String(raw.id) : raw.asset_class ? String(raw.asset_class) : undefined,
+    score,
+    rating: rating in ratingMeta ? rating : ratingFromScore(score),
+    reasons: Array.isArray(raw.reasons) ? raw.reasons.map(String) : [],
+    top_assets: topAssets,
+    in_portfolio: raw.in_portfolio === true,
+  };
+}
+
+function normalizeOpportunityList(value: unknown): MarketOpportunityItem[] {
+  return Array.isArray(value)
+    ? value.map((item, index) => normalizeOpportunityItem((item ?? {}) as Record<string, unknown>, index))
+    : [];
+}
+
+export async function getMarketOpportunities(perfil?: MarketRiskProfile): Promise<MarketOpportunities> {
+  const response = await api.get<Record<string, unknown>>(
+    '/market/opportunities',
+    { params: perfil ? { perfil } : undefined, timeout: 60000 },
+  );
+  const body = response.data;
+  const allocation = (body.suggested_allocation_pct ?? {}) as Record<string, unknown>;
+  return {
+    profile: body.profile ? (String(body.profile) as MarketRiskProfile) : undefined,
+    generated_at: body.generated_at ? String(body.generated_at) : undefined,
+    disclaimer: body.disclaimer ? String(body.disclaimer) : undefined,
+    warnings: Array.isArray(body.warnings) ? body.warnings.map(String) : [],
+    classes: normalizeOpportunityList(body.classes),
+    assets: normalizeOpportunityList(body.ranking),
+    portfolio: normalizeOpportunityList(body.portfolio),
+    suggested_allocation: Object.entries(allocation).map(([id, percent]) => ({ id, percent: Number(percent) || 0 })),
+  };
 }
 
 export async function refreshDividendPrices(): Promise<DividendPriceRefreshResult> {

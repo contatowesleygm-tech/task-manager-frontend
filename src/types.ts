@@ -509,6 +509,32 @@ export interface Task {
   items: TaskItem[];
 }
 
+export type MarketRiskProfile = 'conservador' | 'moderado' | 'arrojado';
+export type OpportunityRating = 'otimo' | 'bom' | 'neutro' | 'atencao' | 'evitar';
+
+export interface MarketOpportunityItem {
+  id: string;
+  label: string;
+  ticker?: string;
+  class_id?: string;
+  score: number;
+  rating: OpportunityRating;
+  reasons: string[];
+  top_assets?: string[];
+  in_portfolio?: boolean;
+}
+
+export interface MarketOpportunities {
+  profile?: MarketRiskProfile;
+  generated_at?: string;
+  disclaimer?: string;
+  warnings: string[];
+  classes: MarketOpportunityItem[];
+  assets: MarketOpportunityItem[];
+  portfolio: MarketOpportunityItem[];
+  suggested_allocation: Array<{ id: string; percent: number }>;
+}
+
 export interface TaskPagination {
   page: number;
   limit: number;
