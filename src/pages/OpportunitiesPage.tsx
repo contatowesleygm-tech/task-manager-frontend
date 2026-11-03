@@ -3,15 +3,20 @@ import axios from 'axios';
 import { Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, PageHero, Panel, PanelTitle } from '../components/ui';
+import BacktestSection from '../components/BacktestSection';
+import { StackedBar } from '../components/charts';
 import { getMarketOpportunities } from '../api';
+import { ratingMeta } from '../utils/rating';
 import type { MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating } from '../types';
 
-const ratingMeta: Record<OpportunityRating, { label: string; color: string }> = {
-  otimo: { label: 'Ótimo', color: 'var(--success)' },
-  bom: { label: 'Bom', color: 'var(--primary-strong)' },
-  neutro: { label: 'Neutro', color: 'var(--muted)' },
-  atencao: { label: 'Atenção', color: 'var(--warning)' },
-  evitar: { label: 'Evitar', color: 'var(--error)' },
+type Tab = 'oportunidades' | 'simulacao';
+
+const classColors: Record<string, string> = {
+  renda_fixa: '#2563eb',
+  acoes_br: '#16a34a',
+  fiis: '#d97706',
+  internacional: '#8b5cf6',
+  cripto: '#f97316',
 };
 
 const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
@@ -23,6 +28,27 @@ const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
 const Page = styled.div`
   display: grid;
   gap: 20px;
+`;
+
+const Tabs = styled.div`
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+`;
+
+const TabButton = styled.button<{ $active: boolean }>`
+  min-height: 38px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  color: ${({ $active }) => ($active ? 'var(--primary-contrast)' : 'var(--text)')};
+  background: ${({ $active }) => ($active ? 'var(--primary)' : 'transparent')};
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 `;
 
 const Toolbar = styled.div`
@@ -100,17 +126,6 @@ const Disclaimer = styled.p`
   line-height: 1.5;
 `;
 
-const AllocationList = styled.ul`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  li { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); font-size: 13px; color: var(--text); }
-  strong { font-variant-numeric: tabular-nums; }
-`;
-
 function errorMessage(error: unknown): string {
   if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
     if (error.response?.status === 404) return 'O serviço de oportunidades ainda não está disponível no servidor.';
@@ -160,6 +175,7 @@ function ItemSection({ title, description, items }: { title: string; description
 }
 
 export default function OpportunitiesPage() {
+  const [tab, setTab] = useState<Tab>('oportunidades');
   const [profile, setProfile] = useState<MarketRiskProfile>('moderado');
   const [data, setData] = useState<MarketOpportunities>();
   const [loading, setLoading] = useState(true);
@@ -187,20 +203,29 @@ export default function OpportunitiesPage() {
         <div>
           <span><Gauge size={14} /> Oportunidades</span>
           <h1>Avaliação de oportunidades.</h1>
-          <p>Nota de 0 a 100 por classe de ativo e por ativo, combinando retorno, risco e contexto de mercado.</p>
-          {updatedAt && <p style={{ marginTop: 8, fontSize: 12 }}>Atualizado em {updatedAt}</p>}
+          <p>Nota de 0 a 100 por classe de ativo e por ativo, e uma simulação histórica para ver o que o passado ensina.</p>
+          {tab === 'oportunidades' && updatedAt && <p style={{ marginTop: 8, fontSize: 12 }}>Atualizado em {updatedAt}</p>}
         </div>
-        <Toolbar>
-          <Field htmlFor="opp-profile">Perfil de risco
-            <select id="opp-profile" value={profile} onChange={event => setProfile(event.target.value as MarketRiskProfile)}>
-              {profiles.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select>
-          </Field>
-          <Button type="button" onClick={() => setVersion(current => current + 1)} disabled={loading}>
-            <RefreshCw />{loading ? 'Atualizando...' : 'Atualizar'}
-          </Button>
-        </Toolbar>
+        <Tabs role="tablist" aria-label="Seções">
+          <TabButton type="button" role="tab" aria-selected={tab === 'oportunidades'} $active={tab === 'oportunidades'} onClick={() => setTab('oportunidades')}>Oportunidades</TabButton>
+          <TabButton type="button" role="tab" aria-selected={tab === 'simulacao'} $active={tab === 'simulacao'} onClick={() => setTab('simulacao')}>Simulação histórica</TabButton>
+        </Tabs>
       </PageHero>
+
+      {tab === 'simulacao' && <BacktestSection />}
+
+      {tab === 'oportunidades' && (
+        <>
+          <Toolbar>
+            <Field htmlFor="opp-profile">Perfil de risco
+              <select id="opp-profile" value={profile} onChange={event => setProfile(event.target.value as MarketRiskProfile)}>
+                {profiles.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+            </Field>
+            <Button type="button" onClick={() => setVersion(current => current + 1)} disabled={loading}>
+              <RefreshCw />{loading ? 'Atualizando...' : 'Atualizar'}
+            </Button>
+          </Toolbar>
 
       {error && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{error}</Panel>}
 
@@ -220,11 +245,16 @@ export default function OpportunitiesPage() {
                 <PanelTitle>Alocação sugerida</PanelTitle>
                 <Description>Distribuição de referência para o perfil {profile}, ajustada pelas notas de cada classe.</Description>
               </div>
-              <AllocationList>
-                {data.suggested_allocation.map(item => (
-                  <li key={item.id}>{classLabels.get(item.id) ?? item.id}: <strong>{item.percent}%</strong></li>
-                ))}
-              </AllocationList>
+              <StackedBar
+                ariaLabel="Alocação sugerida por classe de ativo"
+                items={[...data.suggested_allocation].sort((a, b) => b.percent - a.percent).map(item => ({
+                  id: item.id,
+                  label: classLabels.get(item.id) ?? item.id,
+                  value: item.percent,
+                  valueLabel: `${item.percent}%`,
+                  color: classColors[item.id] ?? 'var(--primary)',
+                }))}
+              />
             </Section>
           )}
           <ItemSection title="Classes de ativos" description="Onde o cenário atual está mais favorável." items={data.classes} />
@@ -233,6 +263,8 @@ export default function OpportunitiesPage() {
           <Disclaimer>
             {data.disclaimer ?? 'Análise quantitativa automatizada baseada em indicadores. Não constitui recomendação de investimento personalizada.'}
           </Disclaimer>
+        </>
+      )}
         </>
       )}
     </Page>

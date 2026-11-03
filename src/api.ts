@@ -10,6 +10,7 @@ import type {
   DividendAssetTypeOption, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
+  BacktestParams, BacktestResult,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
 } from './types';
 
@@ -245,6 +246,20 @@ export async function getMarketOpportunities(perfil?: MarketRiskProfile): Promis
     portfolio: normalizeOpportunityList(body.portfolio),
     suggested_allocation: Object.entries(allocation).map(([id, percent]) => ({ id, percent: Number(percent) || 0 })),
   };
+}
+
+export async function getMarketBacktest(params: BacktestParams): Promise<BacktestResult> {
+  const response = await api.get<BacktestResult>('/market/backtest', {
+    params: {
+      valor: params.valor,
+      anos: params.anos,
+      aporte_mensal: params.aporte_mensal,
+      reajustar_aporte_ipca: params.reajustar_aporte_ipca,
+      perfil: params.perfil,
+    },
+    timeout: 90000,
+  });
+  return response.data;
 }
 
 export async function refreshDividendPrices(): Promise<DividendPriceRefreshResult> {

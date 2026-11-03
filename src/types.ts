@@ -535,6 +535,97 @@ export interface MarketOpportunities {
   suggested_allocation: Array<{ id: string; percent: number }>;
 }
 
+export interface BacktestYear {
+  year: number;
+  partial: boolean;
+  return_pct: number;
+  value_without_contributions: number;
+  value_with_contributions: number;
+}
+
+export interface BacktestAsset {
+  id: string;
+  name: string;
+  kind: 'ativo' | 'carteira';
+  note?: string;
+  weights_pct?: Record<string, number>;
+  rating: OpportunityRating;
+  rating_label: string;
+  preserved_purchasing_power: boolean;
+  without_contributions: {
+    final_value: number;
+    multiple: number;
+    final_value_in_initial_purchasing_power: number;
+    cagr_pct: number;
+    real_cagr_pct: number;
+    annual_volatility_pct: number;
+    max_drawdown_pct: number;
+    peak: string | null;
+    trough: string | null;
+    recovered_at: string | null;
+    months_to_recover: number | null;
+    best_year: BacktestYear | null;
+    worst_year: BacktestYear | null;
+    negative_years: number;
+  };
+  with_contributions: {
+    total_invested: number;
+    final_value: number;
+    gain: number;
+    return_on_invested_pct: number;
+    annual_irr_pct: number;
+    final_value_in_initial_purchasing_power: number;
+  };
+  yearly: BacktestYear[];
+}
+
+export interface BacktestCrisis {
+  id: string;
+  name: string;
+  period: { start: string; end: string };
+  inflation_pct: number;
+  results: Array<{
+    id: string;
+    name: string;
+    return_pct: number;
+    worst_drop_pct: number;
+    value_at_start: number;
+    value_at_end: number;
+  }>;
+}
+
+export interface BacktestResult {
+  generated_at: string;
+  parameters: {
+    initial_amount: number;
+    monthly_contribution: number;
+    contribution_indexed_to_ipca: boolean;
+    start_year: number;
+    period: { start: string; end: string; months: number; years: number };
+    profile: MarketRiskProfile;
+  };
+  inflation: {
+    ipca_accumulated_pct: number;
+    ipca_average_annual_pct: number;
+    initial_amount_corrected_to_today: number;
+    initial_amount_today_in_start_purchasing_power: number;
+  };
+  highlights: string[];
+  portfolio: BacktestAsset;
+  assets: BacktestAsset[];
+  crises: BacktestCrisis[];
+  unavailable: Array<{ id: string; reason: string }>;
+  disclaimer: string;
+}
+
+export interface BacktestParams {
+  valor: number;
+  anos: number;
+  aporte_mensal: number;
+  reajustar_aporte_ipca: boolean;
+  perfil: MarketRiskProfile;
+}
+
 export interface TaskPagination {
   page: number;
   limit: number;
