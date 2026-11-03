@@ -626,6 +626,102 @@ export interface BacktestParams {
   perfil: MarketRiskProfile;
 }
 
+export interface FiiWindow {
+  months: number;
+  from: string;
+  to: string;
+  price_return_pct: number | null;
+  distributions_per_share: number;
+  total_return_pct: number | null;
+  total_cagr_pct: number | null;
+  cdi_cagr_pct: number | null;
+  ipca_cagr_pct: number | null;
+  excess_over_cdi_pp: number | null;
+  real_cagr_pct: number | null;
+  annual_volatility_pct: number | null;
+  max_drawdown_pct: number | null;
+  drawdown_peak: string | null;
+  drawdown_trough: string | null;
+}
+
+export interface FiiYear {
+  year: number;
+  months: number;
+  partial: boolean;
+  price_return_pct: number | null;
+  distributions_per_share: number;
+  dividend_yield_on_start_price_pct: number | null;
+  total_return_pct: number | null;
+}
+
+export interface FiiFund {
+  ticker: string;
+  name: string;
+  segment: string | null;
+  mandate: string | null;
+  management: string | null;
+  fund_age_years: number | null;
+  listed_age_years: number;
+  history: { from: string; to: string; months: number };
+  market: {
+    price: number;
+    price_date: string;
+    vp_per_share: number;
+    p_vp: number;
+    p_vp_median_5y: number | null;
+    p_vp_vs_median_pct: number | null;
+  };
+  distributions: {
+    last_12m_per_share: number;
+    dividend_yield_12m_pct: number | null;
+    average_dividend_yield_5y_pct: number | null;
+    months_paid_pct: number | null;
+    growth_cagr_3y_pct: number | null;
+  };
+  equity: { net_assets: number | null; holders: number | null };
+  yearly_history: FiiYear[];
+  score: number;
+  rating: OpportunityRating;
+  rating_label: string;
+  reasons: string[];
+  common_window: FiiWindow | null;
+  simulation: {
+    initial_amount: number;
+    window: string;
+    fii_final_value: number;
+    cdi_final_value: number | null;
+    inflation_corrected_amount: number | null;
+  } | null;
+}
+
+export interface FiiComparison {
+  generated_at: string;
+  comparison: {
+    requested_years: number;
+    window_months: number;
+    window_years: number;
+    limited_by_youngest_fund: boolean;
+    average_age_years: number;
+    oldest: string | null;
+    youngest: string | null;
+  };
+  leaders: {
+    best_total_return: string | null;
+    highest_dividend_yield: string | null;
+    lowest_drawdown: string | null;
+    cheapest_p_vp: string | null;
+  };
+  funds: FiiFund[];
+  not_found: Array<{ ticker: string; reason: string }>;
+  disclaimer: string;
+}
+
+export interface FiiCompareParams {
+  tickers: string[];
+  anos: number;
+  valor: number;
+}
+
 export interface TaskPagination {
   page: number;
   limit: number;

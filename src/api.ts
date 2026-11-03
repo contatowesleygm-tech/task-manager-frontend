@@ -10,7 +10,7 @@ import type {
   DividendAssetTypeOption, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
-  BacktestParams, BacktestResult,
+  BacktestParams, BacktestResult, FiiCompareParams, FiiComparison,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
 } from './types';
 
@@ -258,6 +258,19 @@ export async function getMarketBacktest(params: BacktestParams): Promise<Backtes
       perfil: params.perfil,
     },
     timeout: 90000,
+  });
+  return response.data;
+}
+
+export async function compareFiis(params: FiiCompareParams): Promise<FiiComparison> {
+  const response = await api.get<FiiComparison>('/market/fiis/compare', {
+    params: {
+      ...(params.tickers.length ? { tickers: params.tickers.join(',') } : {}),
+      anos: params.anos,
+      valor: params.valor,
+    },
+    // A primeira chamada baixa os arquivos da CVM e pode levar cerca de 10 segundos.
+    timeout: 120000,
   });
   return response.data;
 }

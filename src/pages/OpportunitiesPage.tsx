@@ -4,12 +4,13 @@ import { Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, PageHero, Panel, PanelTitle } from '../components/ui';
 import BacktestSection from '../components/BacktestSection';
+import FiisSection from '../components/FiisSection';
 import { StackedBar } from '../components/charts';
 import { getMarketOpportunities } from '../api';
 import { ratingMeta } from '../utils/rating';
 import type { MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating } from '../types';
 
-type Tab = 'oportunidades' | 'simulacao';
+type Tab = 'oportunidades' | 'simulacao' | 'fiis';
 
 const classColors: Record<string, string> = {
   renda_fixa: '#2563eb',
@@ -209,10 +210,12 @@ export default function OpportunitiesPage() {
         <Tabs role="tablist" aria-label="Seções">
           <TabButton type="button" role="tab" aria-selected={tab === 'oportunidades'} $active={tab === 'oportunidades'} onClick={() => setTab('oportunidades')}>Oportunidades</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'simulacao'} $active={tab === 'simulacao'} onClick={() => setTab('simulacao')}>Simulação histórica</TabButton>
+          <TabButton type="button" role="tab" aria-selected={tab === 'fiis'} $active={tab === 'fiis'} onClick={() => setTab('fiis')}>Comparar FIIs</TabButton>
         </Tabs>
       </PageHero>
 
       {tab === 'simulacao' && <BacktestSection />}
+      {tab === 'fiis' && <FiisSection />}
 
       {tab === 'oportunidades' && (
         <>

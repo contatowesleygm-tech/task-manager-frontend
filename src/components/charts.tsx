@@ -308,10 +308,11 @@ export interface ValueBarItem extends BarItem {
 
 // Barras horizontais; com `invested`, mostra a parte aportada e o ganho sobre ela.
 // Se um valor for muito maior que os demais, a barra é truncada para não esmagar as outras.
-export function ValueBars({ items }: { items: ValueBarItem[] }) {
+// `max` fixa a escala (ex.: 100 para notas).
+export function ValueBars({ items, max }: { items: ValueBarItem[]; max?: number }) {
   const sorted = [...items].map(item => item.value).sort((a, b) => b - a);
-  const outlier = sorted.length > 2 && sorted[0] > sorted[1] * 4;
-  const scaleMax = Math.max(outlier ? sorted[1] * 1.25 : sorted[0], 1);
+  const outlier = max === undefined && sorted.length > 2 && sorted[0] > sorted[1] * 4;
+  const scaleMax = Math.max(max ?? (outlier ? sorted[1] * 1.25 : sorted[0]), 1);
   return (
     <Rows>
       {items.map(item => {
