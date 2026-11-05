@@ -28,12 +28,13 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'english-study', label: 'Inglês', path: '/english-study', page: 'english-study', icon: Languages },
   { id: 'expenses', label: 'Despesas', path: '/expenses', page: 'expenses', icon: Receipt },
   { id: 'dividends', label: 'Dividendos', path: '/dividends', page: 'dividends', icon: PiggyBank },
+  { id: 'fixed-income', label: 'Renda fixa', path: '/fixed-income', page: 'fixed-income', icon: PiggyBank },
   { id: 'opportunities', label: 'Oportunidades', path: '/opportunities', page: 'opportunities', icon: Gauge },
 ];
 
 const menuStorageKey = 'task-manager-menu-order';
 const sidebarCollapsedStorageKey = 'task-manager-sidebar-collapsed';
-const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends', 'opportunities']);
+const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends', 'fixed-income', 'opportunities']);
 
 const TopbarLogout = styled.button`
   display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--error-border); border-radius: var(--radius-md);
@@ -240,7 +241,7 @@ export default function AppLayout({
   const visibleFinanceItems = visibleMenuItems.filter(item => financeMenuItemIds.has(item.id));
   const sidebarMenuItems = menuItems.filter(item => {
     if (item.id === 'finances') return visibleFinanceItems.length > 0;
-    if (item.id === 'expenses' || item.id === 'dividends' || item.id === 'opportunities') return false;
+    if (item.id === 'expenses' || item.id === 'dividends' || item.id === 'fixed-income' || item.id === 'opportunities') return false;
     return !archivedPageIds.includes(item.id);
   });
 

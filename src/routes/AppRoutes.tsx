@@ -476,7 +476,7 @@ export default function AppRoutes() {
       void loadFinances();
     } else if (page === 'list') {
       void loadTasks(taskPage, taskLimit);
-    } else if (page !== 'login' && page !== 'english-study' && page !== 'expenses' && page !== 'dividends' && page !== 'opportunities' && page !== 'study-resource-edit') {
+    } else if (page !== 'login' && page !== 'english-study' && page !== 'expenses' && page !== 'dividends' && page !== 'fixed-income' && page !== 'opportunities' && page !== 'study-resource-edit') {
       void loadTasks(1, 100);
     }
   }, [authReady, authUser, page, taskPage, taskLimit, scheduleQuery, schedulePage, studyResourcePage, studyResourceFilters, loadTasks, loadToday, loadWeek, loadMonth, loadCompleted, loadGoals, loadSchedule, loadScheduleAlerts, loadStudyResources, loadFinances]);
@@ -1189,7 +1189,10 @@ export default function AppRoutes() {
       );
       break;
     case 'dividends':
-      content = <DividendsPage />;
+      content = <DividendsPage key="dividends" />;
+      break;
+    case 'fixed-income':
+      content = <DividendsPage key="fixed-income" assetType="renda_fixa" />;
       break;
     case 'opportunities':
       content = <OpportunitiesPage />;

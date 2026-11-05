@@ -3,11 +3,13 @@ import { Field, Panel, PanelTitle } from './ui';
 
 export const Wrap = styled.div`
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 `;
 
 export const Section = styled(Panel)`
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   ${PanelTitle} { margin: 0; }
 `;

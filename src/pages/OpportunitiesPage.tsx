@@ -5,12 +5,13 @@ import styled from 'styled-components';
 import { Button, EmptyState, Field, PageHero, Panel, PanelTitle } from '../components/ui';
 import BacktestSection from '../components/BacktestSection';
 import FiisSection from '../components/FiisSection';
+import PortfolioSection from '../components/PortfolioSection';
 import { StackedBar } from '../components/charts';
 import { getMarketOpportunities } from '../api';
 import { ratingMeta } from '../utils/rating';
 import type { MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating } from '../types';
 
-type Tab = 'oportunidades' | 'simulacao' | 'fiis';
+type Tab = 'oportunidades' | 'carteira' | 'simulacao' | 'fiis';
 
 const classColors: Record<string, string> = {
   renda_fixa: '#2563eb',
@@ -28,21 +29,26 @@ const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
 
 const Page = styled.div`
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
 `;
 
 const Tabs = styled.div`
   display: inline-flex;
+  max-width: 100%;
   gap: 4px;
   padding: 4px;
+  overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
 `;
 
 const TabButton = styled.button<{ $active: boolean }>`
+  flex: 0 0 auto;
   min-height: 38px;
   padding: 6px 16px;
+  white-space: nowrap;
   border: 0;
   border-radius: 999px;
   color: ${({ $active }) => ($active ? 'var(--primary-contrast)' : 'var(--text)')};
@@ -62,6 +68,7 @@ const Toolbar = styled.div`
 
 const Section = styled(Panel)`
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   ${PanelTitle} { margin: 0; }
 `;
@@ -209,11 +216,13 @@ export default function OpportunitiesPage() {
         </div>
         <Tabs role="tablist" aria-label="Seções">
           <TabButton type="button" role="tab" aria-selected={tab === 'oportunidades'} $active={tab === 'oportunidades'} onClick={() => setTab('oportunidades')}>Oportunidades</TabButton>
+          <TabButton type="button" role="tab" aria-selected={tab === 'carteira'} $active={tab === 'carteira'} onClick={() => setTab('carteira')}>Minha carteira</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'simulacao'} $active={tab === 'simulacao'} onClick={() => setTab('simulacao')}>Simulação histórica</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'fiis'} $active={tab === 'fiis'} onClick={() => setTab('fiis')}>Comparar FIIs</TabButton>
         </Tabs>
       </PageHero>
 
+      {tab === 'carteira' && <PortfolioSection />}
       {tab === 'simulacao' && <BacktestSection />}
       {tab === 'fiis' && <FiisSection />}
 

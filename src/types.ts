@@ -402,7 +402,10 @@ export interface DividendHolding {
   asset_type: DividendAssetType;
   fii_segment: FiiSegment | null;
   quantity: number | string;
-  dividend_per_share: number | string;
+  applied_amount?: number | string | null;
+  cdi_percent?: number | string | null;
+  investment_date?: string | null;
+  dividend_per_share?: number | string | null;
   frequency: DividendFrequency;
   reference_month: number;
   payment_day: number;
@@ -421,8 +424,11 @@ export interface DividendHolding {
 
 export interface DividendHoldingPayload {
   ticker: string;
-  quantity: number;
+  quantity?: number;
   asset_type?: DividendAssetType;
+  applied_amount?: number;
+  cdi_percent?: number;
+  investment_date?: string;
   name?: string | null;
   fii_segment?: FiiSegment | null;
   dividend_per_share?: number;
@@ -481,18 +487,40 @@ export interface DividendProjectionItem {
   ticker: string;
   name: string | null;
   asset_type: DividendAssetType;
-  quantity: number | string;
-  dividend_per_share: number | string;
+  quantity?: number | string;
+  cdi_percent?: number | string;
+  investment_date?: string;
+  dividend_per_share?: number | string | null;
   amount: number | string;
+  gross_amount?: number | string;
+  tax_amount?: number | string;
+  net_amount?: number | string;
   payment_date: string;
+}
+
+export interface DividendProjectionMonth {
+  month: string;
+  total: number | string;
+  gross_total?: number | string;
+  tax_total?: number | string;
+  net_total?: number | string;
+  items: DividendProjectionItem[];
 }
 
 export interface DividendProjection {
   from: string;
   months_count: number;
+  cdi_rate?: number | string;
+  income_tax_rate?: number | string;
+  gross_total?: number | string;
+  tax_total?: number | string;
+  total?: number | string;
+  net_total?: number | string;
   period_total: number | string;
   monthly_average: number | string;
-  months: Array<{ month: string; total: number | string; items: DividendProjectionItem[] }>;
+  monthly_average_gross?: number | string;
+  monthly_average_tax?: number | string;
+  months: DividendProjectionMonth[];
 }
 
 export interface Task {
@@ -720,6 +748,110 @@ export interface FiiCompareParams {
   tickers: string[];
   anos: number;
   valor: number;
+}
+
+export type PortfolioRecommendation = 'vender' | 'reduzir' | 'manter' | 'sem_dados';
+
+export interface PortfolioPosition {
+  ticker: string;
+  name: string | null;
+  segment: string | null;
+  quantity: number;
+  price: number;
+  market_value: number;
+  weight_pct: number;
+  invested: number | null;
+  gain: number | null;
+  estimated_sale_tax: number;
+  cost_basis_missing: boolean;
+  recommendation: PortfolioRecommendation;
+  suggested_sell_pct: number;
+  sell_score: number | null;
+  quality_score: number | null;
+  quality_rating?: string;
+  dividend_yield_12m_pct: number | null;
+  yield_on_cost_pct?: number | null;
+  p_vp?: number;
+  total_cagr_pct?: number | null;
+  cdi_cagr_pct?: number | null;
+  max_drawdown_pct?: number | null;
+  reasons: string[];
+}
+
+export interface FixedIncomeProduct {
+  id: string;
+  name: string;
+  gross_annual_pct: number;
+  income_tax_pct: number;
+  net_annual_pct: number;
+  note: string;
+}
+
+export interface SellPlan {
+  mode: 'meta_renda_fixa' | 'recomendacao';
+  sales: Array<{ ticker: string; sell_pct: number; gross: number; tax: number; net: number; income_lost: number; forced: boolean }>;
+  totals: {
+    gross_proceeds: number;
+    estimated_tax: number;
+    net_proceeds: number;
+    fii_income_lost_per_year: number;
+    fixed_income_income_per_year: number;
+    income_change_per_year: number;
+    tax_payback_months: number | null;
+    fixed_income_share_after_pct: number | null;
+  };
+  message: string;
+}
+
+export interface PortfolioAnalysis {
+  generated_at: string;
+  profile: MarketRiskProfile;
+  portfolio: {
+    total_value: number;
+    allocation_pct: Record<string, number>;
+    fixed_income_target_pct: number;
+    fixed_income_gap_pct: number | null;
+    fiis_count: number;
+  };
+  fixed_income: {
+    holding_period_months: number;
+    best_net_option: string;
+    products: FixedIncomeProduct[];
+    cdi: number;
+    selic: number;
+    ipca_12m: number;
+  };
+  positions: PortfolioPosition[];
+  sell_plan: SellPlan;
+  notes: string[];
+}
+
+export interface SwitchSimulation {
+  sold: Array<{ ticker: string; sell_pct: number; gross_proceeds: number; estimated_tax: number; net_proceeds: number; dividend_yield_12m_pct: number }>;
+  totals: { gross_proceeds: number; estimated_tax: number; net_proceeds: number };
+  break_even: {
+    weighted_fii_dividend_yield_pct: number;
+    best_fixed_income_net_pct: number;
+    fii_price_appreciation_needed_per_year_pct: number;
+    note: string;
+  };
+  projections: Array<{
+    months: number;
+    keep_funds_value: number;
+    switch_values: Record<string, number>;
+    best_switch_option: string;
+    difference_best_switch_vs_keep: number;
+  }>;
+  assumptions: string[];
+}
+
+export interface PortfolioParams {
+  perfil: MarketRiskProfile;
+  anos: number;
+  prazo_meses: number;
+  cdi_percent: number;
+  lci_percent: number;
+  meta_renda_fixa?: number;
 }
 
 export interface TaskPagination {

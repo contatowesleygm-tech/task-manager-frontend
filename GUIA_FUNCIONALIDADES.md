@@ -606,6 +606,12 @@ Todos os módulos devem compartilhar os mesmos componentes, cores e padrões.
 - Projeções.
 - Gráficos de rendimentos.
 
+### Renda fixa
+
+- Cadastro e gestão de investimentos de renda fixa.
+- Total investido, valor atual e resultado da modalidade.
+- Projeção mensal filtrada para os ativos de renda fixa.
+
 Os módulos podem possuir componentes específicos, mas devem respeitar integralmente as fundações e os padrões globais.
 
 # 10. Acessibilidade

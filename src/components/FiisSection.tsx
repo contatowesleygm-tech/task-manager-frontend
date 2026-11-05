@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import axios from 'axios';
 import styled from 'styled-components';
 import { Building2, LoaderCircle } from 'lucide-react';
 import { Button, EmptyState, Field, PanelTitle } from './ui';
@@ -8,6 +7,7 @@ import { ColumnChart, DivergingBars, ValueBars } from './charts';
 import { compareFiis } from '../api';
 import { formatBRL, formatCompactBRL, formatPercent, maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import { ratingMeta } from '../utils/rating';
+import { apiErrorMessage } from '../utils/errors';
 import type { FiiComparison, FiiCompareParams, FiiFund } from '../types';
 
 const tickerPattern = /^[A-Z]{4}1[0-9]$/;
@@ -61,11 +61,7 @@ function ageOf(fund: FiiFund): number {
 }
 
 function errorMessage(error: unknown): string {
-  if (axios.isAxiosError<{ error?: string }>(error)) {
-    if (error.response?.status === 404 && !error.response.data?.error) return 'A comparação de FIIs ainda não está disponível no servidor.';
-    return error.response?.data?.error || 'Não foi possível comparar os fundos.';
-  }
-  return error instanceof Error ? error.message : 'Não foi possível comparar os fundos.';
+  return apiErrorMessage(error, 'Não foi possível comparar os fundos.', 'A comparação de FIIs ainda não está disponível no servidor.');
 }
 
 export default function FiisSection() {

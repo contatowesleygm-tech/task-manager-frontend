@@ -10,7 +10,7 @@ import type {
   DividendAssetTypeOption, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
-  BacktestParams, BacktestResult, FiiCompareParams, FiiComparison,
+  BacktestParams, BacktestResult, FiiCompareParams, FiiComparison, PortfolioAnalysis, PortfolioParams, SwitchSimulation,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
 } from './types';
 
@@ -275,13 +275,48 @@ export async function compareFiis(params: FiiCompareParams): Promise<FiiComparis
   return response.data;
 }
 
+function portfolioQuery(params: PortfolioParams) {
+  return {
+    perfil: params.perfil,
+    anos: params.anos,
+    prazo_meses: params.prazo_meses,
+    cdi_percent: params.cdi_percent,
+    lci_percent: params.lci_percent,
+    ...(params.meta_renda_fixa !== undefined ? { meta_renda_fixa: params.meta_renda_fixa } : {}),
+  };
+}
+
+export async function analyzeFiiPortfolio(params: PortfolioParams): Promise<PortfolioAnalysis> {
+  // Analisa cada FII da carteira; a primeira chamada baixa os dados da CVM.
+  const response = await api.get<PortfolioAnalysis>('/market/portfolio/fii-analysis', {
+    params: portfolioQuery(params),
+    timeout: 120000,
+  });
+  return response.data;
+}
+
+export async function simulatePortfolioSwitch(
+  params: PortfolioParams,
+  sales: Array<{ ticker: string; sell_pct: number }>,
+): Promise<SwitchSimulation> {
+  const response = await api.get<SwitchSimulation>('/market/portfolio/switch-simulation', {
+    params: {
+      ...portfolioQuery(params),
+      vender: sales.map(sale => `${sale.ticker}:${sale.sell_pct}`).join(','),
+      meses: '12,24,60',
+    },
+    timeout: 120000,
+  });
+  return response.data;
+}
+
 export async function refreshDividendPrices(): Promise<DividendPriceRefreshResult> {
   const response = await api.post<{ data: DividendPriceRefreshResult }>('/dividends/refresh-prices', undefined, { timeout: 60000 });
   return response.data.data;
 }
 
-export async function getDividendProjection(from?: string, months?: number): Promise<DividendProjection> {
-  const response = await api.get<{ data: DividendProjection }>('/dividends/projection', { params: { from, months } });
+export async function getDividendProjection(from?: string, months?: number, cdiRate?: number): Promise<DividendProjection> {
+  const response = await api.get<{ data: DividendProjection }>('/dividends/projection', { params: { from, months, cdi_rate: cdiRate } });
   return response.data.data;
 }
 

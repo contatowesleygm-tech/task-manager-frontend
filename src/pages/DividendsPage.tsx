@@ -4,6 +4,7 @@ import { Check, ChevronRight, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus
 import styled from 'styled-components';
 import { Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import {
   createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
   getDividendProjection, getDividendTypes, refreshDividendPrices, updateDividendHolding,
@@ -78,6 +79,23 @@ const SummaryNote = styled.span`
   color: var(--muted);
   font-size: 11px;
   line-height: 1.45;
+`;
+
+const ProjectionComparison = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 7px;
+  > div + div {
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+  }
+  small {
+    font-size: 10px;
+  }
+  strong {
+    font-size: clamp(16px, 1.8vw, 22px);
+  }
 `;
 
 const SectionHeading = styled.div`
@@ -157,7 +175,7 @@ const ProjectionPanel = styled(Panel)`
 
 const ProjectionControls = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
   padding: 13px;
   margin: 14px 0 17px;
@@ -465,6 +483,9 @@ interface FormState {
   asset_type: DividendAssetType;
   fii_segment: FiiSegment | '';
   quantity: string;
+  applied_amount: string;
+  cdi_percent: string;
+  investment_date: string;
   average_price: string;
   current_price: string;
   dividend_per_share: string;
@@ -556,11 +577,13 @@ function monthLabel(value: string): string {
   return `${monthNames[Number(month) - 1]?.slice(0, 3) ?? month}/${year}`;
 }
 
-function emptyForm(types: DividendAssetTypeOption[]): FormState {
-  const first = types[0] ?? fallbackTypes[0];
+function emptyForm(types: DividendAssetTypeOption[], assetType?: DividendAssetType): FormState {
+  const first = assetType ? types.find(type => type.id === assetType) : types[0];
+  const selected = first ?? fallbackTypes.find(type => type.id === assetType) ?? fallbackTypes[0];
   return {
-    ticker: '', name: '', asset_type: first.id, fii_segment: '', quantity: '', average_price: '', current_price: '',
-    dividend_per_share: '', frequency: first.default_frequency,
+    ticker: '', name: '', asset_type: selected.id, fii_segment: '', quantity: '', applied_amount: '', cdi_percent: '', investment_date: '',
+    average_price: '', current_price: '',
+    dividend_per_share: '', frequency: selected.default_frequency,
     reference_month: '1', payment_day: '15', is_active: true, notes: '',
   };
 }
@@ -572,9 +595,12 @@ function formFrom(holding: DividendHolding): FormState {
     asset_type: holding.asset_type,
     fii_segment: holding.fii_segment ?? '',
     quantity: String(Number(holding.quantity)),
-    average_price: Number(holding.average_price) ? String(Number(holding.average_price)) : '',
-    current_price: holding.current_price == null ? '' : String(Number(holding.current_price)),
-    dividend_per_share: String(Number(holding.dividend_per_share)),
+    applied_amount: holding.applied_amount == null ? '' : moneyFromNumber(Number(holding.applied_amount)),
+    cdi_percent: holding.cdi_percent == null ? '' : String(Number(holding.cdi_percent)),
+    investment_date: holding.investment_date?.slice(0, 10) ?? '',
+    average_price: Number(holding.average_price) ? moneyFromNumber(Number(holding.average_price)) : '',
+    current_price: holding.current_price == null ? '' : moneyFromNumber(Number(holding.current_price)),
+    dividend_per_share: Number(holding.dividend_per_share) ? moneyFromNumber(Number(holding.dividend_per_share)) : '',
     frequency: holding.frequency,
     reference_month: String(holding.reference_month),
     payment_day: String(holding.payment_day),
@@ -584,14 +610,47 @@ function formFrom(holding: DividendHolding): FormState {
 }
 
 function makePayload(form: FormState, editing: DividendHolding | null = null): DividendHoldingPayload {
+  if (form.asset_type === 'renda_fixa') {
+    const appliedAmount = parseMoney(form.applied_amount);
+    const cdiPercent = Number(form.cdi_percent.replace(',', '.'));
+    const investmentDate = form.investment_date;
+    const dateParts = investmentDate.split('-').map(Number);
+    const parsedDate = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2]));
+    if (!Number.isFinite(appliedAmount) || appliedAmount <= 0) throw new Error('Informe um valor aplicado maior que zero.');
+    if (!Number.isFinite(cdiPercent) || cdiPercent < 0) throw new Error('O percentual do CDI não pode ser negativo.');
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(investmentDate)
+      || Number.isNaN(parsedDate.getTime())
+      || parsedDate.getUTCFullYear() !== dateParts[0]
+      || parsedDate.getUTCMonth() !== dateParts[1] - 1
+      || parsedDate.getUTCDate() !== dateParts[2]
+    ) {
+      throw new Error('Informe uma data de investimento válida.');
+    }
+    if (!form.cdi_percent.trim()) throw new Error('Informe o percentual do CDI.');
+    const paymentDay = Number(form.payment_day);
+    if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31) throw new Error('O dia do pagamento deve ser de 1 a 31.');
+    return {
+      ticker: form.ticker.trim().toUpperCase(),
+      name: form.name.trim() || null,
+      asset_type: 'renda_fixa',
+      applied_amount: appliedAmount,
+      cdi_percent: cdiPercent,
+      investment_date: investmentDate,
+      payment_day: paymentDay,
+      is_active: form.is_active,
+      notes: form.notes.trim() || null,
+    };
+  }
+
   const quantity = Number(form.quantity.replace(',', '.'));
   if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Informe uma quantidade de cotas maior que zero.');
-  const dividend = form.dividend_per_share ? Number(form.dividend_per_share.replace(',', '.')) : 0;
+  const dividend = parseMoney(form.dividend_per_share);
   if (!Number.isFinite(dividend) || dividend < 0) throw new Error('O provento por cota não pode ser negativo.');
   const paymentDay = Number(form.payment_day);
-  const averagePrice = form.average_price ? Number(form.average_price.replace(',', '.')) : 0;
+  const averagePrice = parseMoney(form.average_price);
   if (!Number.isFinite(averagePrice) || averagePrice < 0) throw new Error('O preço médio não pode ser negativo.');
-  const currentPrice = form.current_price ? Number(form.current_price.replace(',', '.')) : null;
+  const currentPrice = form.current_price ? parseMoney(form.current_price) : null;
   if (currentPrice !== null && (!Number.isFinite(currentPrice) || currentPrice < 0)) throw new Error('O preço atual não pode ser negativo.');
   if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31) throw new Error('O dia de pagamento deve ser de 1 a 31.');
 
@@ -624,7 +683,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function DividendsPage() {
+interface DividendsPageProps {
+  assetType?: DividendAssetType;
+}
+
+export default function DividendsPage({ assetType }: DividendsPageProps) {
+  const isFixedIncome = assetType === 'renda_fixa';
   const [assetTypes, setAssetTypes] = useState<DividendAssetTypeOption[]>(fallbackTypes);
   const [result, setResult] = useState<PaginatedDividendHoldings>();
   const [projection, setProjection] = useState<DividendProjection>();
@@ -632,12 +696,14 @@ export default function DividendsPage() {
   const [portfolio, setPortfolio] = useState<DividendPortfolio>();
   const [from, setFrom] = useState(currentMonth());
   const [months, setMonths] = useState(12);
-  const [filters, setFilters] = useState<DividendFilters>({ page: 1, limit: 20 });
-  const [draft, setDraft] = useState({ asset_type: '', fii_segment: '', active: '', search: '' });
+  const [cdiRate, setCdiRate] = useState('13.65');
+  const [filters, setFilters] = useState<DividendFilters>(() => ({ ...(assetType ? { asset_type: assetType } : {}), page: 1, limit: 20 }));
+  const [draft, setDraft] = useState({ asset_type: assetType ?? '', fii_segment: '', active: '', search: '' });
   const [form, setForm] = useState<FormState>(() => emptyForm(fallbackTypes));
   const [editing, setEditing] = useState<DividendHolding | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DividendHolding | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -672,15 +738,19 @@ export default function DividendsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    setError('');
+    const parsedCdiRate = Number(cdiRate.replace(',', '.'));
+    const validCdiRate = !isFixedIncome || (cdiRate.trim() !== '' && Number.isFinite(parsedCdiRate) && parsedCdiRate >= 0);
+    setError(validCdiRate ? '' : 'Informe uma taxa CDI anual válida para carregar a projeção.');
     Promise.all([
       getDividendHoldings(filters),
-      getDividendProjection(from, months),
+      validCdiRate
+        ? getDividendProjection(from, months, isFixedIncome ? parsedCdiRate : undefined)
+        : Promise.resolve(undefined),
       getDividendPortfolio(),
     ]).then(([loaded, loadedProjection, loadedPortfolio]) => {
       if (!active) return;
       setResult(loaded);
-      setProjection(loadedProjection);
+      if (loadedProjection) setProjection(loadedProjection);
       setPortfolio(loadedPortfolio);
     }).catch(loadError => {
       if (active) setError(getErrorMessage(loadError, 'Não foi possível carregar os dividendos.'));
@@ -688,7 +758,7 @@ export default function DividendsPage() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [filters, from, months, refreshVersion]);
+  }, [filters, from, months, cdiRate, isFixedIncome, refreshVersion]);
 
   const refreshPrices = useCallback(async (options?: { silent?: boolean; force?: boolean }) => {
     const silent = Boolean(options?.silent);
@@ -713,13 +783,13 @@ export default function DividendsPage() {
   }, []);
 
   useEffect(() => {
-    if (!shouldAutoRefreshPrices()) return;
+    if (isFixedIncome || !shouldAutoRefreshPrices()) return;
     void refreshPrices({ silent: true });
-  }, [refreshPrices]);
+  }, [isFixedIncome, refreshPrices]);
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm(assetTypes));
+    setForm(emptyForm(assetTypes, assetType));
     setFormOpen(true);
   }
 
@@ -746,8 +816,25 @@ export default function DividendsPage() {
     setSaving(true);
     try {
       const payload = makePayload(form, editing);
-      if (editing) await updateDividendHolding(editing.id, payload);
-      else await createDividendHolding(payload);
+      const saved = editing
+        ? await updateDividendHolding(editing.id, payload)
+        : await createDividendHolding(payload);
+      if (isFixedIncome) {
+        const appliedAmount = parseMoney(form.applied_amount);
+        const cdiPercent = Number(form.cdi_percent.replace(',', '.'));
+        const valuesWereSaved = Number.isFinite(Number(saved.applied_amount))
+          && Math.abs(Number(saved.applied_amount) - appliedAmount) < 0.01
+          && Number.isFinite(Number(saved.cdi_percent))
+          && Math.abs(Number(saved.cdi_percent) - cdiPercent) < 0.005
+          && saved.investment_date?.slice(0, 10) === form.investment_date;
+        if (!valuesWereSaved) {
+          setFormOpen(false);
+          setEditing(null);
+          setRefreshVersion(version => version + 1);
+          setError('O servidor não confirmou o valor aplicado, o percentual do CDI e a data. Atualize/reinicie o backend antes de cadastrar novamente.');
+          return;
+        }
+      }
       setFormOpen(false);
       setEditing(null);
       setNotice(editing ? 'Ativo atualizado.' : 'Ativo cadastrado.');
@@ -760,13 +847,32 @@ export default function DividendsPage() {
   }
 
   async function toggleActive(holding: DividendHolding) {
+    const holdingId = String(holding.id);
+    if (togglingIds.has(holdingId)) return;
+    setTogglingIds(current => new Set(current).add(holdingId));
     setError('');
     setNotice('');
     try {
-      await updateDividendHolding(holding.id, { is_active: !holding.is_active });
+      const updated = await updateDividendHolding(holding.id, { is_active: !holding.is_active });
+      if (holding.asset_type === 'renda_fixa') {
+        const valuesWerePreserved = Number(updated.applied_amount) === Number(holding.applied_amount)
+          && Number(updated.cdi_percent) === Number(holding.cdi_percent)
+          && updated.investment_date?.slice(0, 10) === holding.investment_date?.slice(0, 10);
+        if (!valuesWerePreserved) {
+          setRefreshVersion(version => version + 1);
+          setError('O servidor não preservou os dados da renda fixa ao alterar a situação. Atualize/reinicie o backend antes de tentar novamente.');
+          return;
+        }
+      }
       setRefreshVersion(version => version + 1);
     } catch (toggleError) {
       setError(getErrorMessage(toggleError, 'Não foi possível alterar o ativo.'));
+    } finally {
+      setTogglingIds(current => {
+        const next = new Set(current);
+        next.delete(holdingId);
+        return next;
+      });
     }
   }
 
@@ -788,7 +894,7 @@ export default function DividendsPage() {
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFilters({
-      asset_type: (draft.asset_type || undefined) as DividendAssetType | undefined,
+      asset_type: assetType ?? (draft.asset_type || undefined) as DividendAssetType | undefined,
       fii_segment: (draft.fii_segment || undefined) as FiiSegment | undefined,
       active: draft.active ? draft.active === 'true' : undefined,
       search: draft.search.trim() || undefined,
@@ -798,8 +904,8 @@ export default function DividendsPage() {
   }
 
   function clearFilters() {
-    setDraft({ asset_type: '', fii_segment: '', active: '', search: '' });
-    setFilters({ page: 1, limit: 20 });
+    setDraft({ asset_type: assetType ?? '', fii_segment: '', active: '', search: '' });
+    setFilters({ ...(assetType ? { asset_type: assetType } : {}), page: 1, limit: 20 });
   }
 
   function assetLabel(type: DividendAssetType | string) {
@@ -808,10 +914,56 @@ export default function DividendsPage() {
 
   const holdings = result?.data ?? [];
   const pagination = result?.pagination;
-  const projectedMonths = projection?.months ?? [];
+  const displayedProjection = isFixedIncome && projection
+    ? (() => {
+      const monthsWithFixedIncome = projection.months.map(month => {
+        const items = month.items.filter(item => item.asset_type === assetType);
+        const grossTotal = items.reduce((total, item) => total + (Number(item.gross_amount ?? item.amount) || 0), 0);
+        const taxTotal = items.reduce((total, item) => total + (Number(item.tax_amount) || 0), 0);
+        const netTotal = items.reduce((total, item) => total + (Number(item.net_amount ?? item.amount) || 0), 0);
+        return {
+          ...month,
+          items,
+          gross_total: grossTotal,
+          tax_total: taxTotal,
+          net_total: netTotal,
+          total: netTotal,
+        };
+      });
+      const grossTotal = monthsWithFixedIncome.reduce((total, month) => total + Number(month.gross_total), 0);
+      const taxTotal = monthsWithFixedIncome.reduce((total, month) => total + Number(month.tax_total), 0);
+      const netTotal = monthsWithFixedIncome.reduce((total, month) => total + Number(month.net_total), 0);
+      return {
+        ...projection,
+        months: monthsWithFixedIncome,
+        gross_total: grossTotal,
+        tax_total: taxTotal,
+        total: netTotal,
+        net_total: netTotal,
+        period_total: netTotal,
+        monthly_average: projection.months_count ? netTotal / projection.months_count : 0,
+        monthly_average_gross: projection.months_count ? grossTotal / projection.months_count : 0,
+        monthly_average_tax: projection.months_count ? taxTotal / projection.months_count : 0,
+      };
+    })()
+    : projection;
+  const fixedIncomeGroup = portfolio?.by_asset_type.find(group => group.key === assetType);
+  const displayedPortfolio = isFixedIncome && portfolio
+    ? {
+      ...portfolio,
+      holdings_count: fixedIncomeGroup?.holdings_count ?? 0,
+      invested_total: fixedIncomeGroup?.invested_total ?? 0,
+      current_total: fixedIncomeGroup?.current_total ?? 0,
+      profit_loss: fixedIncomeGroup?.profit_loss ?? 0,
+      profit_loss_percent: Number(fixedIncomeGroup?.invested_total)
+        ? Number(fixedIncomeGroup?.profit_loss) / Number(fixedIncomeGroup?.invested_total) * 100
+        : 0,
+    }
+    : portfolio;
+  const projectedMonths = displayedProjection?.months ?? [];
   const maxMonth = Math.max(...projectedMonths.map(month => Number(month.total) || 0), 1);
-  const profitLoss = Number(portfolio?.profit_loss) || 0;
-  const pricesUpdatedLabel = formatPriceUpdatedAt(portfolio?.prices_updated_at);
+  const profitLoss = Number(displayedPortfolio?.profit_loss) || 0;
+  const pricesUpdatedLabel = isFixedIncome ? null : formatPriceUpdatedAt(portfolio?.prices_updated_at);
   const hasAppliedFilters = Boolean(
     filters.asset_type || filters.fii_segment || filters.active !== undefined || filters.search,
   );
@@ -820,9 +972,11 @@ export default function DividendsPage() {
     <Page>
       <PageHero>
         <div>
-          <span><PiggyBank size={14} /> Dividendos</span>
-          <h1>Sua renda passiva, mês a mês.</h1>
-          <p>Cotações de ativos com auto cotação atualizam sozinhas uma vez por dia. O provento projetado é uma estimativa, não uma garantia de pagamento.</p>
+          <span><PiggyBank size={14} />{isFixedIncome ? 'Renda fixa' : 'Dividendos'}</span>
+          <h1>{isFixedIncome ? 'Acompanhe seus investimentos de renda fixa.' : 'Sua renda passiva, mês a mês.'}</h1>
+          <p>{isFixedIncome
+            ? 'Cadastre cada produto e acompanhe o capital investido, o valor atual e a estimativa de rendimento mensal.'
+            : 'Cotações de ativos com auto cotação atualizam sozinhas uma vez por dia. O provento projetado é uma estimativa, não uma garantia de pagamento.'}</p>
           {pricesUpdatedLabel && (
             <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
               Última atualização de cotações: {pricesUpdatedLabel}
@@ -830,10 +984,12 @@ export default function DividendsPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Button type="button" onClick={() => void refreshPrices({ force: true })} disabled={refreshingPrices}>
-            <RefreshCw />{refreshingPrices ? 'Atualizando...' : 'Atualizar cotações'}
-          </Button>
-          <Button type="button" $variant="primary" onClick={openCreate}><Plus />Novo ativo</Button>
+          {!isFixedIncome && (
+            <Button type="button" onClick={() => void refreshPrices({ force: true })} disabled={refreshingPrices}>
+              <RefreshCw />{refreshingPrices ? 'Atualizando...' : 'Atualizar cotações'}
+            </Button>
+          )}
+          <Button type="button" $variant="primary" onClick={openCreate}><Plus />{isFixedIncome ? 'Novo investimento' : 'Novo ativo'}</Button>
         </div>
       </PageHero>
 
@@ -844,31 +1000,51 @@ export default function DividendsPage() {
         <SummaryCard $tone="income">
           <div>
             <small><PiggyBank size={14} />Estimativa mensal</small>
-            <strong>{money(projection?.monthly_average)}</strong>
-            <SummaryNote>{money(projection?.period_total)} no período · {months} meses</SummaryNote>
+            {isFixedIncome ? (
+              <>
+                <ProjectionComparison aria-label="Comparação de rendimento bruto e líquido">
+                  <div>
+                    <small>Bruto</small>
+                    <strong>{money(displayedProjection?.monthly_average_gross)}</strong>
+                  </div>
+                  <div>
+                    <small>Líquido</small>
+                    <strong>{money(displayedProjection?.monthly_average)}</strong>
+                  </div>
+                </ProjectionComparison>
+                <SummaryNote>
+                  No período: bruto {money(displayedProjection?.gross_total)} − IR {money(displayedProjection?.tax_total)} = líquido {money(displayedProjection?.period_total)} · {months} meses
+                </SummaryNote>
+              </>
+            ) : (
+              <>
+                <strong>{money(displayedProjection?.monthly_average)}</strong>
+                <SummaryNote>{money(displayedProjection?.period_total)} no período · {months} meses</SummaryNote>
+              </>
+            )}
           </div>
         </SummaryCard>
         <SummaryCard>
           <div>
             <small>Total investido</small>
-            <strong>{money(portfolio?.invested_total)}</strong>
+            <strong>{money(displayedPortfolio?.invested_total)}</strong>
             <SummaryNote>Capital aplicado</SummaryNote>
           </div>
         </SummaryCard>
         <SummaryCard>
           <div>
             <small>Valor atual da carteira</small>
-            <strong>{money(portfolio?.current_total)}</strong>
+            <strong>{money(displayedPortfolio?.current_total)}</strong>
             <SummaryNote>Valor de mercado da carteira</SummaryNote>
           </div>
         </SummaryCard>
         <SummaryCard $tone="result" $negative={profitLoss < 0}>
           <div>
             <small><TrendingUp size={14} />Resultado</small>
-            <strong>{money(portfolio?.profit_loss)}</strong>
+            <strong>{money(displayedPortfolio?.profit_loss)}</strong>
             <SummaryNote>
-              {portfolio?.profit_loss_percent != null
-                ? `${profitLoss < 0 ? '' : '+'}${Number(portfolio.profit_loss_percent).toFixed(2)}% sobre o investido`
+              {displayedPortfolio?.profit_loss_percent != null
+                ? `${profitLoss < 0 ? '' : '+'}${Number(displayedPortfolio.profit_loss_percent).toFixed(2)}% sobre o investido`
                 : 'Variação da carteira'}
             </SummaryNote>
           </div>
@@ -882,15 +1058,17 @@ export default function DividendsPage() {
               <PanelTitle><PiggyBank size={19} />Meus ativos</PanelTitle>
               <SectionDescription>Consulte valores, proventos e situação de cada posição.</SectionDescription>
             </div>
-            <PositionCount>{Number(portfolio?.holdings_count) || pagination?.total || 0} ativos</PositionCount>
+            <PositionCount>{Number(displayedPortfolio?.holdings_count) || pagination?.total || 0} ativos</PositionCount>
           </SectionHeading>
           <Toolbar onSubmit={applyFilters}>
-            <Field htmlFor="div-filter-type">Tipo
-              <select id="div-filter-type" value={draft.asset_type} onChange={event => setDraft(current => ({ ...current, asset_type: event.target.value }))}>
-                <option value="">Todos</option>
-                {assetTypes.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}
-              </select>
-            </Field>
+            {!isFixedIncome && (
+              <Field htmlFor="div-filter-type">Tipo
+                <select id="div-filter-type" value={draft.asset_type} onChange={event => setDraft(current => ({ ...current, asset_type: event.target.value }))}>
+                  <option value="">Todos</option>
+                  {assetTypes.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}
+                </select>
+              </Field>
+            )}
             <Field htmlFor="div-filter-segment">Segmento
               <select id="div-filter-segment" value={draft.fii_segment} onChange={event => setDraft(current => ({ ...current, fii_segment: event.target.value }))}>
                 <option value="">Todos</option>
@@ -918,7 +1096,17 @@ export default function DividendsPage() {
           ) : holdings.length ? (
             <List>
               {holdings.map(holding => {
-                const estimatedPayment = (Number(holding.quantity) || 0) * (Number(holding.dividend_per_share) || 0);
+                    const grossFixedIncomeEstimate = Number(holding.applied_amount ?? holding.invested_amount ?? 0)
+                  * (Number(holding.cdi_percent) || 0) / 100
+                  * Number(cdiRate.replace(',', '.') || 0) / 100 / 12;
+                    const incomeTaxRate = Number(projection?.income_tax_rate ?? 0.15);
+                    const fixedIncomeEstimate = grossFixedIncomeEstimate * (1 - incomeTaxRate);
+                    const estimatedPayment = holding.asset_type === 'renda_fixa'
+                      ? fixedIncomeEstimate
+                      : (Number(holding.quantity) || 0) * (Number(holding.dividend_per_share) || 0);
+                    const estimatedTax = holding.asset_type === 'renda_fixa'
+                      ? grossFixedIncomeEstimate * incomeTaxRate
+                      : 0;
                 const holdingResult = Number(holding.profit_loss) || 0;
                 const resultNegative = holdingResult < 0;
                 const mark = holding.ticker.slice(0, 4);
@@ -933,15 +1121,24 @@ export default function DividendsPage() {
                           <ChipRow>
                             <Chip>{assetLabel(holding.asset_type)}</Chip>
                             {holding.fii_segment && <Chip>{segmentLabels[holding.fii_segment]}</Chip>}
-                            <Chip>{frequencyLabels[holding.frequency] ?? holding.frequency}</Chip>
-                            <Chip>Dia {holding.payment_day}</Chip>
-                            {holding.auto_price ? <Chip>Auto cotação</Chip> : <Chip>Preço manual</Chip>}
+                            {holding.asset_type === 'renda_fixa' ? (
+                              <>
+                                <Chip>{Number(holding.cdi_percent) || 0}% do CDI</Chip>
+                                {holding.investment_date && <Chip>Desde {paymentDateLabel(holding.investment_date)}</Chip>}
+                              </>
+                            ) : (
+                              <>
+                                <Chip>{frequencyLabels[holding.frequency] ?? holding.frequency}</Chip>
+                                <Chip>Dia {holding.payment_day}</Chip>
+                                {holding.auto_price ? <Chip>Auto cotação</Chip> : <Chip>Preço manual</Chip>}
+                              </>
+                            )}
                             {!holding.is_active && <Chip>Inativo</Chip>}
                           </ChipRow>
                         </CardTitle>
                       </CardIdentity>
                       <Actions>
-                        <IconButton type="button" title={holding.is_active ? 'Desativar' : 'Ativar'} aria-label={`${holding.is_active ? 'Desativar' : 'Ativar'} ${holding.ticker}`} onClick={() => { void toggleActive(holding); }}>
+                        <IconButton type="button" title={holding.is_active ? 'Desativar' : 'Ativar'} aria-label={`${holding.is_active ? 'Desativar' : 'Ativar'} ${holding.ticker}`} disabled={togglingIds.has(String(holding.id))} onClick={() => { void toggleActive(holding); }}>
                           {holding.is_active ? <Pause /> : <Play />}
                         </IconButton>
                         <IconButton type="button" title="Editar" aria-label={`Editar ${holding.ticker}`} onClick={() => openEdit(holding)}><Pencil /></IconButton>
@@ -951,8 +1148,8 @@ export default function DividendsPage() {
 
                     <Metrics>
                       <Metric>
-                        <small>Investido</small>
-                        <strong>{money(holding.invested_amount)}</strong>
+                        <small>{holding.asset_type === 'renda_fixa' ? 'Aplicado' : 'Investido'}</small>
+                        <strong>{money(holding.applied_amount ?? holding.invested_amount)}</strong>
                       </Metric>
                       <Metric>
                         <small>Valor atual</small>
@@ -963,14 +1160,16 @@ export default function DividendsPage() {
                         <strong>{money(holding.profit_loss)}</strong>
                       </Metric>
                       <Metric $accent="income">
-                        <small>Por pagamento</small>
+                        <small>{holding.asset_type === 'renda_fixa' ? 'Rendimento líquido mensal' : 'Por pagamento'}</small>
                         <strong>{money(estimatedPayment)}</strong>
                       </Metric>
                     </Metrics>
 
                     <CardFooter>
                       <span>
-                        {Number(holding.quantity)} cotas · {perShare.format(Number(holding.dividend_per_share) || 0)} por cota
+                        {holding.asset_type === 'renda_fixa'
+                          ? `${money(holding.applied_amount ?? holding.invested_amount)} aplicado · ${Number(holding.cdi_percent) || 0}% do CDI · bruto ${money(grossFixedIncomeEstimate)} · IR ${money(estimatedTax)}`
+                          : `${Number(holding.quantity)} cotas · ${perShare.format(Number(holding.dividend_per_share) || 0)} por cota`}
                         {holding.notes ? ` · ${holding.notes}` : ''}
                       </span>
                     </CardFooter>
@@ -997,7 +1196,11 @@ export default function DividendsPage() {
           <SectionHeading>
             <div>
               <PanelTitle><TrendingUp size={19} />Projeção mensal</PanelTitle>
-              <SectionDescription>Selecione um mês para ver a data e o valor de cada provento previsto.</SectionDescription>
+              <SectionDescription>
+                {isFixedIncome
+                  ? 'Informe a taxa CDI anual e selecione um mês para consultar a projeção calculada pela API.'
+                  : 'Selecione um mês para ver a data e o valor de cada provento previsto.'}
+              </SectionDescription>
             </div>
             <PositionCount>{months} meses</PositionCount>
           </SectionHeading>
@@ -1010,14 +1213,28 @@ export default function DividendsPage() {
                 {[6, 12, 24, 36].map(count => <option key={count} value={count}>{count}</option>)}
               </select>
             </Field>
+            {isFixedIncome && (
+              <Field htmlFor="div-cdi-rate">CDI anual (%)
+                <input
+                  id="div-cdi-rate"
+                  type="text"
+                  inputMode="decimal"
+                  value={cdiRate}
+                  onChange={event => setCdiRate(event.target.value)}
+                  aria-describedby="div-cdi-rate-hint"
+                  required
+                />
+              </Field>
+            )}
           </ProjectionControls>
+          {isFixedIncome && <SectionDescription id="div-cdi-rate-hint">Taxa informada para estimar a projeção (exemplo: 13,65%).</SectionDescription>}
           {projectedMonths.length ? projectedMonths.map(month => {
             const total = Number(month.total) || 0;
             return (
               <MonthRow
                 key={month.month}
                 type="button"
-                aria-label={`Ver detalhes dos proventos de ${monthLabel(month.month)}, estimados em ${money(total)}`}
+                aria-label={`Ver detalhes dos proventos de ${monthLabel(month.month)}, estimados em ${money(total)} líquidos`}
                 onClick={() => setSelectedMonth(month)}
               >
                 <span><strong>{monthLabel(month.month)}</strong><span>{money(total)}</span><ChevronRight aria-hidden="true" /></span>
@@ -1025,6 +1242,9 @@ export default function DividendsPage() {
                   <span style={{ width: `${Math.min((total / maxMonth) * 100, 100)}%` }} />
                 </Track>
                 {month.items.length > 0 && <small>{month.items.map(item => item.ticker).join(', ')}</small>}
+                {isFixedIncome && month.items.length > 0 && (
+                  <small>Bruto {money(month.gross_total)} · IR {money(month.tax_total)} · Líquido {money(month.net_total)}</small>
+                )}
               </MonthRow>
             );
           }) : <p style={{ margin: 0, color: 'var(--muted)', fontSize: 12 }}>Cadastre ao menos um ativo para ver a projeção.</p>}
@@ -1041,14 +1261,21 @@ export default function DividendsPage() {
           <DividendModalContent>
             <MonthTotal>
               <div>
-                <small>Total estimado no mês</small>
+                <small>{isFixedIncome ? 'Total líquido estimado no mês' : 'Total estimado no mês'}</small>
                 <strong>{money(selectedMonth.total)}</strong>
+                {isFixedIncome && (
+                  <small style={{ display: 'block', marginTop: 6, color: 'var(--muted)' }}>
+                    Bruto {money(selectedMonth.gross_total)} · IR {money(selectedMonth.tax_total)}
+                  </small>
+                )}
               </div>
               <PositionCount>
                 {selectedMonth.items.length} {selectedMonth.items.length === 1 ? 'provento' : 'proventos'}
               </PositionCount>
             </MonthTotal>
-            <SectionDescription>Valores previstos; o pagamento efetivo pode variar.</SectionDescription>
+            <SectionDescription>{isFixedIncome
+              ? `Rendimento após IR de ${((Number(displayedProjection?.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}%; valores estimados e sujeitos a variação.`
+              : 'Valores previstos; o pagamento efetivo pode variar.'}</SectionDescription>
             {selectedMonth.items.length ? (
               <DividendEntries aria-label="Detalhes dos proventos previstos">
                 {selectedMonth.items.map((item, index) => (
@@ -1057,12 +1284,19 @@ export default function DividendsPage() {
                       <h3>{item.ticker}</h3>
                       <p>{item.name || assetLabel(item.asset_type)} · {paymentDateLabel(item.payment_date)}</p>
                       <small>
-                        {quantityLabel(item.quantity)} cotas × {perShare.format(Number(item.dividend_per_share) || 0)} por cota
+                        {item.asset_type === 'renda_fixa'
+                          ? `${Number(item.cdi_percent) || 0}% do CDI${item.investment_date ? ` · aplicado desde ${paymentDateLabel(item.investment_date)}` : ''}`
+                          : `${quantityLabel(item.quantity ?? 0)} cotas × ${perShare.format(Number(item.dividend_per_share) || 0)} por cota`}
                       </small>
+                      {isFixedIncome && (
+                        <small style={{ display: 'block', marginTop: 5 }}>
+                          Bruto {money(item.gross_amount)} · IR {money(item.tax_amount)} · Líquido {money(item.net_amount ?? item.amount)}
+                        </small>
+                      )}
                     </DividendInfo>
                     <DividendPayout>
                       <strong>{money(item.amount)}</strong>
-                      <small>Provento previsto</small>
+                      <small>{isFixedIncome ? 'Valor líquido a receber' : 'Provento previsto'}</small>
                     </DividendPayout>
                   </DividendEntry>
                 ))}
@@ -1076,14 +1310,16 @@ export default function DividendsPage() {
 
       <Modal
         open={formOpen}
-        title={editing ? 'Editar ativo' : 'Novo ativo'}
+        title={editing ? (isFixedIncome ? 'Editar investimento' : 'Editar ativo') : (isFixedIncome ? 'Novo investimento' : 'Novo ativo')}
         icon={editing ? <Pencil size={18} /> : <Plus size={18} />}
         busy={saving}
         onClose={closeForm}
       >
         <Form onSubmit={event => { void submit(event); }}>
           <Hint>
-            {selectedType?.auto_quote
+            {isFixedIncome
+              ? 'Informe o valor aplicado, o percentual do CDI e a data; a estimativa mensal usa a taxa CDI da projeção.'
+              : selectedType?.auto_quote
               ? 'Se deixar o preço atual vazio, a API busca a cotação automaticamente para este tipo.'
               : 'Informe o preço atual manualmente quando quiser acompanhar o valor da posição.'}
           </Hint>
@@ -1093,11 +1329,13 @@ export default function DividendsPage() {
           <Field htmlFor="div-name">Nome
             <input id="div-name" maxLength={160} value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder="Ex.: Maxi Renda" />
           </Field>
-          <Field htmlFor="div-type">Tipo
-            <select id="div-type" value={form.asset_type} onChange={event => changeAssetType(event.target.value as DividendAssetType)}>
-              {assetTypes.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}
-            </select>
-          </Field>
+          {!isFixedIncome && (
+            <Field htmlFor="div-type">Tipo
+              <select id="div-type" value={form.asset_type} onChange={event => changeAssetType(event.target.value as DividendAssetType)}>
+                {assetTypes.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}
+              </select>
+            </Field>
+          )}
           {showSegmentField && (
             <Field htmlFor="div-segment">Segmento (FII/Fiagro)
               <select id="div-segment" value={form.fii_segment} onChange={event => setForm(current => ({ ...current, fii_segment: event.target.value as FiiSegment | '' }))}>
@@ -1106,17 +1344,31 @@ export default function DividendsPage() {
               </select>
             </Field>
           )}
+          {isFixedIncome ? (
+            <>
+              <Field htmlFor="div-applied-amount">Valor aplicado (R$) *
+                <input id="div-applied-amount" type="text" inputMode="numeric" autoComplete="off" value={form.applied_amount} onChange={event => setForm(current => ({ ...current, applied_amount: maskMoney(event.target.value) }))} placeholder="R$ 10.000,00" required />
+              </Field>
+              <Field htmlFor="div-cdi-percent">Percentual do CDI (%) *
+                <input id="div-cdi-percent" type="text" inputMode="decimal" value={form.cdi_percent} onChange={event => setForm(current => ({ ...current, cdi_percent: event.target.value }))} placeholder="120" required />
+              </Field>
+              <Field htmlFor="div-investment-date">Data do investimento *
+                <input id="div-investment-date" type="date" value={form.investment_date} onChange={event => setForm(current => ({ ...current, investment_date: event.target.value }))} required />
+              </Field>
+            </>
+          ) : (
+          <>
           <Field htmlFor="div-quantity">Quantidade de cotas *
             <input id="div-quantity" type="number" min={0} step="any" value={form.quantity} onChange={event => setForm(current => ({ ...current, quantity: event.target.value }))} required />
           </Field>
           <Field htmlFor="div-average">Preço médio pago (R$)
-            <input id="div-average" type="number" min={0} step="any" value={form.average_price} onChange={event => setForm(current => ({ ...current, average_price: event.target.value }))} placeholder="9,80" />
+            <input id="div-average" type="text" inputMode="numeric" autoComplete="off" value={form.average_price} onChange={event => setForm(current => ({ ...current, average_price: maskMoney(event.target.value) }))} placeholder="R$ 9,80" />
           </Field>
           <Field htmlFor="div-current">Preço atual (R$)
-            <input id="div-current" type="number" min={0} step="any" value={form.current_price} onChange={event => setForm(current => ({ ...current, current_price: event.target.value }))} placeholder={selectedType?.auto_quote ? 'Vazio = cotação automática' : 'Opcional'} />
+            <input id="div-current" type="text" inputMode="numeric" autoComplete="off" value={form.current_price} onChange={event => setForm(current => ({ ...current, current_price: maskMoney(event.target.value) }))} placeholder={selectedType?.auto_quote ? 'Vazio = cotação automática' : 'Opcional'} />
           </Field>
           <Field htmlFor="div-per-share">Provento por cota (R$)
-            <input id="div-per-share" type="number" min={0} step="any" value={form.dividend_per_share} onChange={event => setForm(current => ({ ...current, dividend_per_share: event.target.value }))} placeholder="0,10" />
+            <input id="div-per-share" type="text" inputMode="numeric" autoComplete="off" value={form.dividend_per_share} onChange={event => setForm(current => ({ ...current, dividend_per_share: maskMoney(event.target.value) }))} placeholder="R$ 0,10" />
           </Field>
           <Field htmlFor="div-frequency">Frequência
             <select id="div-frequency" value={form.frequency} onChange={event => setForm(current => ({ ...current, frequency: event.target.value as DividendFrequency }))}>
@@ -1129,6 +1381,8 @@ export default function DividendsPage() {
                 {monthNames.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
               </select>
             </Field>
+          )}
+          </>
           )}
           <Field htmlFor="div-day">Dia do pagamento
             <input id="div-day" type="number" min={1} max={31} step={1} value={form.payment_day} onChange={event => setForm(current => ({ ...current, payment_day: event.target.value }))} required />
