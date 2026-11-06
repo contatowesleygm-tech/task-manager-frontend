@@ -3,12 +3,13 @@ import axios from 'axios';
 import { Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, PageHero, Panel, PanelTitle } from '../components/ui';
+import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import BacktestSection from '../components/BacktestSection';
 import FiisSection from '../components/FiisSection';
 import PortfolioSection from '../components/PortfolioSection';
 import { StackedBar } from '../components/charts';
 import { getMarketOpportunities } from '../api';
-import { ratingMeta } from '../utils/rating';
+import { qualityTagMeta, ratingMeta } from '../utils/rating';
 import type { MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating } from '../types';
 
 type Tab = 'oportunidades' | 'carteira' | 'simulacao' | 'fiis';
@@ -111,6 +112,13 @@ const Badge = styled.span<{ $rating: OpportunityRating }>`
   font-weight: 800;
 `;
 
+const BadgeGroup = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+`;
+
 const ScoreBar = styled.div<{ $rating: OpportunityRating; $score: number }>`
   display: grid;
   gap: 4px;
@@ -149,6 +157,7 @@ function formatDateTime(value?: string): string {
 }
 
 function OpportunityCard({ item }: { item: MarketOpportunityItem }) {
+  const qualityTag = item.ticker ? qualityTagMeta(item.class_id, item.rating, item.analysis_type) : undefined;
   return (
     <Card $rating={item.rating}>
       <header>
@@ -156,7 +165,28 @@ function OpportunityCard({ item }: { item: MarketOpportunityItem }) {
           <h3>{item.label}</h3>
           {item.in_portfolio && <small>Na sua carteira</small>}
         </div>
-        <Badge $rating={item.rating}>{ratingMeta[item.rating].label}</Badge>
+        <BadgeGroup>
+          <Badge $rating={item.rating}>{ratingMeta[item.rating].label}</Badge>
+          {qualityTag && (
+            <MarketAnalysisTag
+              label={qualityTag.label}
+              color={qualityTag.color}
+              details={[
+                `Nota ${item.score}/100 · classificação: ${ratingMeta[item.rating].label}.`,
+                ...(item.analysis_factors?.length
+                  ? item.analysis_factors
+                  : item.analysis_type === 'short_term_market'
+                    ? ['Histórico insuficiente para análise completa; etiqueta baseada apenas nos indicadores de curto prazo disponíveis.']
+                    : ['Critérios: retorno ajustado por proventos, comparação com CDI, volatilidade e queda máxima.']),
+                ...(item.analysis_type === 'fii_fundamentals'
+                  ? ['Vacância: não disponível nos dados padronizados consultados; não foi estimada nem pontuada.']
+                  : item.analysis_type === 'equity_market_history'
+                    ? ['Não avalia lucro, dívida, ROE ou valuation fundamentalista da empresa.']
+                    : []),
+              ]}
+            />
+          )}
+        </BadgeGroup>
       </header>
       <ScoreBar $rating={item.rating} $score={item.score} aria-label={`Nota ${Math.round(item.score)} de 100`}>
         <span>Nota {Math.round(item.score)}/100</span>
@@ -273,7 +303,7 @@ export default function OpportunitiesPage() {
           <ItemSection title="Minha carteira" description="Seus ativos ativos em dividendos, avaliados pelo cenário atual." items={data.portfolio} />
           <ItemSection title="Ranking de ativos" description="Melhores ativos analisados, do melhor para o pior." items={data.assets} />
           <Disclaimer>
-            {data.disclaimer ?? 'Análise quantitativa automatizada baseada em indicadores. Não constitui recomendação de investimento personalizada.'}
+            A nota vai de 0 a 100: 65 ou mais indica cenário favorável; 45 a 64, neutro; 30 a 44, merece atenção; abaixo de 30, evitar. FIIs: retorno vs. CDI (até 25 pontos), queda máxima (10), volatilidade (5), regularidade/variação e crescimento de proventos (até 18), P/VP (até 6), idade (até 6) e patrimônio líquido (de -8 a +5); a vacância não está disponível de forma padronizada. Ações: 40% da nota técnica de 1 ano e 60% do histórico de até 5 anos (retorno vs. CDI, volatilidade e queda máxima); sem dados de lucro, dívida, ROE ou valuation. Não constitui recomendação personalizada. {data.disclaimer ?? ''}
           </Disclaimer>
         </>
       )}

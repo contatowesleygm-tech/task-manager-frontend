@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Eye, ListChecks, LoaderCircle, Plus, Search, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, ListChecks, LoaderCircle, Plus, PowerOff, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import {
@@ -127,6 +127,14 @@ const ListHeading = styled.div`
   margin: 0 2px 10px;
   h2 { margin: 0; color: var(--text); font-size: 14px; font-weight: 750; }
   span { color: var(--muted); font-size: 11px; }
+`;
+
+const TitleActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  @media (max-width: 639px) { width: 100%; }
 `;
 
 const PaginationBar = styled.div`
@@ -372,6 +380,8 @@ interface TasksPageProps {
   onPageSizeChange: (limit: number) => void;
   onNavigate: (path: string) => void;
   onDeactivate: (taskId: TaskId) => void;
+  onDeactivateAll: () => void;
+  statusChanging: boolean;
   onDelete: (task: Task) => void;
 }
 
@@ -391,7 +401,8 @@ const displayDateTime = (value?: string | null) => value
 
 export default function TasksPage({
   tasks, loading, statusFilter, priorityFilter, pagination, onStatusFilterChange,
-  onPriorityFilterChange, onPageChange, onPageSizeChange, onNavigate, onDeactivate, onDelete,
+  onPriorityFilterChange, onPageChange, onPageSizeChange, onNavigate, onDeactivate, onDeactivateAll,
+  statusChanging, onDelete,
 }: TasksPageProps) {
   const [search, setSearch] = useState('');
   const filteredTasks = useMemo(() => tasks.filter(task => {
@@ -425,7 +436,18 @@ export default function TasksPage({
           <h1>Minhas tarefas</h1>
           <p>Organize seus compromissos e acompanhe o que precisa ser feito.</p>
         </div>
-        <Button $variant="primary" onClick={() => onNavigate('/tasks/new')}><Plus />Nova tarefa</Button>
+        <TitleActions>
+          <Button
+            type="button"
+            $variant="danger"
+            onClick={onDeactivateAll}
+            disabled={loading || statusChanging || pagination.activeTotal === 0}
+          >
+            {statusChanging ? <LoaderCircle className="spin" /> : <PowerOff />}
+            Desativar todas
+          </Button>
+          <Button $variant="primary" onClick={() => onNavigate('/tasks/new')}><Plus />Nova tarefa</Button>
+        </TitleActions>
       </PageTitle>
       <OverviewGrid aria-label="Resumo das tarefas">
         <OverviewCard>
@@ -561,7 +583,9 @@ export default function TasksPage({
                       <Eye />Editar
                     </ActionButton>
                     {task.is_active && (
-                      <ActionButton $variant="danger" onClick={() => onDeactivate(task.id)}>Desativar</ActionButton>
+                      <ActionButton $variant="danger" onClick={() => onDeactivate(task.id)} disabled={statusChanging}>
+                        Desativar
+                      </ActionButton>
                     )}
                     <ActionButton
                       $variant="danger"

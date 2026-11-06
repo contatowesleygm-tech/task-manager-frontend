@@ -4,15 +4,19 @@ import { Check, ChevronRight, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus
 import styled from 'styled-components';
 import { Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import { maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import {
   createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
-  getDividendProjection, getDividendTypes, refreshDividendPrices, updateDividendHolding,
+  getDividendCdiRate, getDividendProjection, getDividendTypes, getMarketOpportunities,
+  refreshDividendPrices, updateDividendHolding,
 } from '../api';
 import type {
   DividendAssetType, DividendAssetTypeOption, DividendFilters, DividendFrequency, DividendHolding,
-  DividendHoldingPayload, DividendPortfolio, DividendProjection, FiiSegment, PaginatedDividendHoldings,
+  DividendHoldingPayload, DividendPortfolio, DividendProjection, FiiSegment, MarketOpportunityItem,
+  PaginatedDividendHoldings,
 } from '../types';
+import { qualityTagMeta, ratingMeta } from '../utils/rating';
 
 const Page = styled.div`
   display: grid;
@@ -109,6 +113,15 @@ const SectionHeading = styled.div`
     align-items: flex-start;
     flex-direction: column;
   }
+`;
+
+const BulkActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  @media (max-width: 520px) { justify-content: flex-start; }
 `;
 
 const SectionDescription = styled.p`
@@ -253,6 +266,24 @@ const CardTitle = styled.div`
     font-size: 12px;
     line-height: 1.45;
   }
+  details {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  summary {
+    width: fit-content;
+    color: var(--primary-strong);
+    font-weight: 750;
+    cursor: pointer;
+  }
+  details ul {
+    display: grid;
+    gap: 4px;
+    margin: 6px 0 0;
+    padding-left: 17px;
+    line-height: 1.45;
+  }
 `;
 
 const ChipRow = styled.div`
@@ -272,6 +303,16 @@ const Chip = styled.span`
   background: var(--surface);
   font-size: 10px;
   font-weight: 700;
+`;
+
+const ActivityChip = styled(Chip)<{ $active: boolean }>`
+  border-color: ${({ $active }) => $active
+    ? 'color-mix(in srgb, var(--success) 35%, var(--border))'
+    : 'color-mix(in srgb, var(--error) 30%, var(--border))'};
+  color: ${({ $active }) => $active ? 'var(--success)' : 'var(--error)'};
+  background: ${({ $active }) => $active
+    ? 'var(--success-soft)'
+    : 'var(--error-soft)'};
 `;
 
 const Metrics = styled.div`
@@ -338,17 +379,20 @@ const Actions = styled.div`
   margin-left: auto;
 `;
 
-const IconButton = styled.button`
+const IconButton = styled.button<{ $active?: boolean }>`
   display: grid;
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid ${({ $active }) => $active
+    ? 'color-mix(in srgb, var(--success) 35%, var(--border))'
+    : 'color-mix(in srgb, var(--error) 30%, var(--border))'};
   border-radius: 9px;
-  color: var(--muted);
-  background: var(--surface);
+  color: ${({ $active }) => $active ? 'var(--success)' : 'var(--error)'};
+  background: ${({ $active }) => $active ? 'var(--success-soft)' : 'var(--error-soft)'};
   cursor: pointer;
-  &:hover { color: var(--primary); border-color: var(--primary); }
+  &:hover { border-color: ${({ $active }) => $active ? 'var(--success)' : 'var(--error)'}; }
+  &:disabled { opacity: .55; cursor: not-allowed; }
   &[data-danger='true']:hover { color: var(--error); background: var(--error-soft); }
   svg { width: 15px; height: 15px; }
 `;
@@ -691,12 +735,18 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const isFixedIncome = assetType === 'renda_fixa';
   const [assetTypes, setAssetTypes] = useState<DividendAssetTypeOption[]>(fallbackTypes);
   const [result, setResult] = useState<PaginatedDividendHoldings>();
+  const [marketRatings, setMarketRatings] = useState<Map<string, MarketOpportunityItem>>(() => new Map());
+  const [marketRatingsError, setMarketRatingsError] = useState('');
+  const [marketRatingsLoaded, setMarketRatingsLoaded] = useState(false);
   const [projection, setProjection] = useState<DividendProjection>();
   const [selectedMonth, setSelectedMonth] = useState<DividendProjection['months'][number] | null>(null);
   const [portfolio, setPortfolio] = useState<DividendPortfolio>();
   const [from, setFrom] = useState(currentMonth());
   const [months, setMonths] = useState(12);
-  const [cdiRate, setCdiRate] = useState('13.65');
+  const [cdiRate, setCdiRate] = useState('');
+  const [cdiReferenceDate, setCdiReferenceDate] = useState('');
+  const [cdiRateLoading, setCdiRateLoading] = useState(isFixedIncome);
+  const [cdiRateError, setCdiRateError] = useState('');
   const [filters, setFilters] = useState<DividendFilters>(() => ({ ...(assetType ? { asset_type: assetType } : {}), page: 1, limit: 20 }));
   const [draft, setDraft] = useState({ asset_type: assetType ?? '', fii_segment: '', active: '', search: '' });
   const [form, setForm] = useState<FormState>(() => emptyForm(fallbackTypes));
@@ -704,9 +754,13 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DividendHolding | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(() => new Set());
+  const [bulkChanging, setBulkChanging] = useState(false);
+  const [hasActiveHoldings, setHasActiveHoldings] = useState<boolean | null>(null);
+  const [loadingActivityStatus, setLoadingActivityStatus] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [bulkError, setBulkError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
@@ -736,14 +790,64 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   }, []);
 
   useEffect(() => {
+    if (!isFixedIncome) return undefined;
+    let active = true;
+    setCdiRateLoading(true);
+    setCdiRateError('');
+    void getDividendCdiRate()
+      .then(result => {
+        if (!active) return;
+        setCdiRate(result.rate.toString());
+        setCdiReferenceDate(result.reference_date);
+      })
+      .catch(loadError => {
+        if (!active) return;
+        setCdiRateError(getErrorMessage(loadError, 'Não foi possível carregar o CDI do Banco Central. Informe a taxa manualmente.'));
+      })
+      .finally(() => {
+        if (active) setCdiRateLoading(false);
+      });
+    return () => { active = false; };
+  }, [isFixedIncome]);
+
+  useEffect(() => {
+    if (isFixedIncome) return undefined;
+    let active = true;
+    setMarketRatings(new Map());
+    setMarketRatingsError('');
+    setMarketRatingsLoaded(false);
+    void getMarketOpportunities('moderado')
+      .then(data => {
+        if (!active) return;
+        const ratings = new Map<string, MarketOpportunityItem>();
+        [...data.assets, ...data.portfolio].forEach(item => {
+          if (item.ticker && item.class_id) {
+            ratings.set(`${item.class_id}:${item.ticker.toUpperCase()}`, item);
+          }
+        });
+        setMarketRatings(ratings);
+        setMarketRatingsLoaded(true);
+      })
+      .catch(loadError => {
+        if (active) {
+          setMarketRatingsError(getErrorMessage(loadError, 'Não foi possível carregar as etiquetas de análise de mercado.'));
+          setMarketRatingsLoaded(true);
+        }
+      });
+    return () => { active = false; };
+  }, [isFixedIncome, refreshVersion]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     const parsedCdiRate = Number(cdiRate.replace(',', '.'));
     const validCdiRate = !isFixedIncome || (cdiRate.trim() !== '' && Number.isFinite(parsedCdiRate) && parsedCdiRate >= 0);
-    setError(validCdiRate ? '' : 'Informe uma taxa CDI anual válida para carregar a projeção.');
+    if (cdiRateError) setError(cdiRateError);
+    else if (cdiRateLoading) setError('');
+    else setError(validCdiRate ? '' : 'Informe uma taxa CDI anual válida para carregar a projeção.');
     Promise.all([
       getDividendHoldings(filters),
-      validCdiRate
+      validCdiRate && !cdiRateLoading
         ? getDividendProjection(from, months, isFixedIncome ? parsedCdiRate : undefined)
         : Promise.resolve(undefined),
       getDividendPortfolio(),
@@ -758,7 +862,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [filters, from, months, cdiRate, isFixedIncome, refreshVersion]);
+  }, [filters, from, months, cdiRate, isFixedIncome, cdiRateLoading, cdiRateError, refreshVersion]);
 
   const refreshPrices = useCallback(async (options?: { silent?: boolean; force?: boolean }) => {
     const silent = Boolean(options?.silent);
@@ -786,6 +890,29 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
     if (isFixedIncome || !shouldAutoRefreshPrices()) return;
     void refreshPrices({ silent: true });
   }, [isFixedIncome, refreshPrices]);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingActivityStatus(true);
+    void getDividendHoldings({
+      ...(isFixedIncome ? { asset_type: 'renda_fixa' } : {}),
+      active: true,
+      page: 1,
+      limit: 1,
+    })
+      .then(response => {
+        if (active) setHasActiveHoldings(response.pagination.total > 0);
+      })
+      .catch(statusError => {
+        if (!active) return;
+        setHasActiveHoldings(null);
+        setBulkError(getErrorMessage(statusError, 'Não foi possível verificar a situação dos ativos.'));
+      })
+      .finally(() => {
+        if (active) setLoadingActivityStatus(false);
+      });
+    return () => { active = false; };
+  }, [isFixedIncome, refreshVersion]);
 
   function openCreate() {
     setEditing(null);
@@ -854,15 +981,13 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
     setNotice('');
     try {
       const updated = await updateDividendHolding(holding.id, { is_active: !holding.is_active });
-      if (holding.asset_type === 'renda_fixa') {
-        const valuesWerePreserved = Number(updated.applied_amount) === Number(holding.applied_amount)
-          && Number(updated.cdi_percent) === Number(holding.cdi_percent)
-          && updated.investment_date?.slice(0, 10) === holding.investment_date?.slice(0, 10);
-        if (!valuesWerePreserved) {
-          setRefreshVersion(version => version + 1);
-          setError('O servidor não preservou os dados da renda fixa ao alterar a situação. Atualize/reinicie o backend antes de tentar novamente.');
-          return;
-        }
+      const valuesWerePreserved = updated.is_active === !holding.is_active
+        && Number(updated.invested_amount) === Number(holding.invested_amount)
+        && Number(updated.current_value) === Number(holding.current_value);
+      if (!valuesWerePreserved) {
+        setRefreshVersion(version => version + 1);
+        setError('O servidor não preservou os valores do ativo ao alterar a situação. Atualize/reinicie o backend antes de tentar novamente.');
+        return;
       }
       setRefreshVersion(version => version + 1);
     } catch (toggleError) {
@@ -873,6 +998,71 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
         next.delete(holdingId);
         return next;
       });
+    }
+  }
+
+  async function toggleAllActive() {
+    if (bulkChanging || loading) return;
+    const category = isFixedIncome ? 'investimentos de renda fixa' : 'ativos de dividendos';
+    setBulkChanging(true);
+    setError('');
+    setBulkError('');
+    setNotice('');
+    let changedCount = 0;
+    let isActive = false;
+    try {
+      const baseFilters: DividendFilters = {
+        ...(isFixedIncome ? { asset_type: 'renda_fixa' as const } : {}),
+        page: 1,
+        limit: 100,
+      };
+      const firstPage = await getDividendHoldings(baseFilters);
+      const allHoldings = [...firstPage.data];
+      for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+        const nextPage = await getDividendHoldings({ ...baseFilters, page });
+        allHoldings.push(...nextPage.data);
+      }
+
+      const categoryHoldings = allHoldings.filter(holding => (
+        isFixedIncome
+          ? holding.asset_type === 'renda_fixa'
+          : holding.asset_type !== 'renda_fixa'
+      ));
+      if (!categoryHoldings.length) {
+        setNotice(`Nenhum ${isFixedIncome ? 'investimento de renda fixa' : 'ativo de dividendos'} cadastrado.`);
+        return;
+      }
+      isActive = !categoryHoldings.some(holding => holding.is_active);
+      const targets = categoryHoldings.filter(holding => holding.is_active !== isActive);
+      if (!targets.length) {
+        setNotice(`Todos os ${category} já estão ${isActive ? 'ativos' : 'desativados'}.`);
+        return;
+      }
+
+      for (const holding of targets) {
+        const updated = await updateDividendHolding(holding.id, { is_active: isActive });
+        const valuesWerePreserved = updated.is_active === isActive
+          && Number(updated.invested_amount) === Number(holding.invested_amount)
+          && Number(updated.current_value) === Number(holding.current_value);
+        if (!valuesWerePreserved) {
+          throw new Error(`O servidor não confirmou a situação ou preservou os valores de ${holding.ticker}.`);
+        }
+        changedCount += 1;
+      }
+
+      setNotice(`${changedCount} ${category} ${isActive ? 'ativados' : 'desativados'} com sucesso.`);
+    } catch (operationError) {
+      const verb = isActive ? 'ativar' : 'desativar';
+      const message = getErrorMessage(operationError, `Não foi possível ${verb} todos os ${category}.`);
+      setBulkError(changedCount
+        ? `Ação parcial: ${changedCount} ${category} foram ${isActive ? 'ativados' : 'desativados'} antes da falha. ${message}`
+        : message);
+    } finally {
+      if (changedCount > 0) {
+        setLoadingActivityStatus(true);
+        setRefreshVersion(version => version + 1);
+      }
+      setBulkChanging(false);
     }
   }
 
@@ -926,6 +1116,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
           items,
           gross_total: grossTotal,
           tax_total: taxTotal,
+          income_tax_rate: grossTotal ? taxTotal / grossTotal : 0,
           net_total: netTotal,
           total: netTotal,
         };
@@ -938,6 +1129,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
         months: monthsWithFixedIncome,
         gross_total: grossTotal,
         tax_total: taxTotal,
+        income_tax_rate: grossTotal ? taxTotal / grossTotal : 0,
         total: netTotal,
         net_total: netTotal,
         period_total: netTotal,
@@ -994,6 +1186,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
       </PageHero>
 
       {error && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{error}</Panel>}
+      {bulkError && <Panel role="alert" style={{ color: 'var(--error)', padding: 14 }}>{bulkError}</Panel>}
       {notice && <Panel role="status" style={{ color: 'var(--primary-strong)', padding: 14 }}>{notice}</Panel>}
 
       <SummaryGrid aria-label="Resumo da carteira">
@@ -1058,7 +1251,25 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
               <PanelTitle><PiggyBank size={19} />Meus ativos</PanelTitle>
               <SectionDescription>Consulte valores, proventos e situação de cada posição.</SectionDescription>
             </div>
-            <PositionCount>{Number(displayedPortfolio?.holdings_count) || pagination?.total || 0} ativos</PositionCount>
+            <BulkActions>
+              <PositionCount>{Number(displayedPortfolio?.holdings_count) || pagination?.total || 0} ativos</PositionCount>
+              <Button
+                type="button"
+                $variant={hasActiveHoldings ? 'danger' : 'primary'}
+                title={hasActiveHoldings ? 'Desativar todos os ativos desta lista.' : 'Ativar todos os ativos desta lista.'}
+                disabled={loading || loadingActivityStatus || hasActiveHoldings === null || bulkChanging}
+                onClick={() => void toggleAllActive()}
+              >
+                {bulkChanging || loadingActivityStatus
+                  ? <LoaderCircle className="spin" />
+                  : hasActiveHoldings ? <Pause /> : <Play />}
+                {bulkChanging
+                  ? 'Atualizando situação...'
+                  : loadingActivityStatus
+                    ? 'Verificando situação...'
+                    : hasActiveHoldings ? 'Desativar todos' : 'Ativar todos'}
+              </Button>
+            </BulkActions>
           </SectionHeading>
           <Toolbar onSubmit={applyFilters}>
             {!isFixedIncome && (
@@ -1091,25 +1302,47 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
             </ToolbarActions>
           </Toolbar>
 
+          {!isFixedIncome && (
+            <SectionDescription role={marketRatingsError ? 'alert' : 'note'} style={{ marginTop: -8 }}>
+              {marketRatingsError
+                ? `${marketRatingsError} As etiquetas de análise podem não estar disponíveis.`
+                : 'Perfil moderado. FIIs: patrimônio, idade, P/VP, regularidade dos proventos, retorno e risco histórico; vacância não disponível em fonte padronizada. Ações: retorno ajustado por proventos, CDI, volatilidade e queda máxima; sem balanços, lucro ou dívida. Nota 65+ favorável; 45–64 neutra; 30–44 atenção; abaixo de 30 evitar.'}
+            </SectionDescription>
+          )}
+
           {loading ? (
             <EmptyState><LoaderCircle /><p>Carregando ativos...</p></EmptyState>
           ) : holdings.length ? (
             <List>
               {holdings.map(holding => {
-                    const grossFixedIncomeEstimate = Number(holding.applied_amount ?? holding.invested_amount ?? 0)
-                  * (Number(holding.cdi_percent) || 0) / 100
-                  * Number(cdiRate.replace(',', '.') || 0) / 100 / 12;
-                    const incomeTaxRate = Number(projection?.income_tax_rate ?? 0.15);
-                    const fixedIncomeEstimate = grossFixedIncomeEstimate * (1 - incomeTaxRate);
-                    const estimatedPayment = holding.asset_type === 'renda_fixa'
-                      ? fixedIncomeEstimate
-                      : (Number(holding.quantity) || 0) * (Number(holding.dividend_per_share) || 0);
-                    const estimatedTax = holding.asset_type === 'renda_fixa'
-                      ? grossFixedIncomeEstimate * incomeTaxRate
-                      : 0;
+                const fixedIncomeProjectionItem = holding.asset_type === 'renda_fixa'
+                  ? projectedMonths[0]?.items.find(item => String(item.holding_id) === String(holding.id))
+                  : undefined;
+                const grossFixedIncomeEstimate = Number(
+                  fixedIncomeProjectionItem?.gross_amount ?? fixedIncomeProjectionItem?.amount ?? 0,
+                );
+                const fixedIncomeEstimate = Number(
+                  fixedIncomeProjectionItem?.net_amount ?? fixedIncomeProjectionItem?.amount ?? 0,
+                );
+                const estimatedTax = Number(
+                  fixedIncomeProjectionItem?.tax_amount
+                    ?? Math.max(grossFixedIncomeEstimate - fixedIncomeEstimate, 0),
+                );
+                const estimatedPayment = holding.asset_type === 'renda_fixa'
+                  ? fixedIncomeEstimate
+                  : (Number(holding.quantity) || 0) * (Number(holding.dividend_per_share) || 0);
                 const holdingResult = Number(holding.profit_loss) || 0;
                 const resultNegative = holdingResult < 0;
                 const mark = holding.ticker.slice(0, 4);
+                const analysisClass = holding.asset_type === 'fii' || holding.asset_type === 'fiagro'
+                  ? 'fiis'
+                  : ['acao', 'bdr', 'etf'].includes(holding.asset_type) ? 'acoes_br' : undefined;
+                const marketRating = analysisClass
+                  ? marketRatings.get(`${analysisClass}:${holding.ticker.toUpperCase()}`)
+                  : undefined;
+                const qualityTag = marketRating
+                  ? qualityTagMeta(analysisClass, marketRating.rating, marketRating.analysis_type)
+                  : undefined;
                 return (
                   <Card key={String(holding.id)} $inactive={!holding.is_active}>
                     <CardTop>
@@ -1121,6 +1354,24 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                           <ChipRow>
                             <Chip>{assetLabel(holding.asset_type)}</Chip>
                             {holding.fii_segment && <Chip>{segmentLabels[holding.fii_segment]}</Chip>}
+                            {qualityTag && (
+                              <MarketAnalysisTag
+                                label={qualityTag.label}
+                                color={qualityTag.color}
+                                details={[
+                                  `Nota ${marketRating?.score}/100 · perfil moderado · classificação: ${marketRating ? ratingMeta[marketRating.rating].label : 'indisponível'}.`,
+                                  ...(marketRating?.analysis_factors ?? ['Análise detalhada não disponível para este ativo.']),
+                                  ...(marketRating?.analysis_type === 'fii_fundamentals'
+                                    ? ['Vacância: não disponível nos dados padronizados consultados; não foi estimada nem pontuada.']
+                                    : marketRating?.analysis_type === 'equity_market_history'
+                                      ? ['Não avalia lucro, dívida, ROE ou valuation fundamentalista da empresa.']
+                                      : []),
+                                ]}
+                              />
+                            )}
+                            {analysisClass && marketRatingsLoaded && !marketRatingsError && !marketRating && (
+                              <Chip>Sem análise de mercado</Chip>
+                            )}
                             {holding.asset_type === 'renda_fixa' ? (
                               <>
                                 <Chip>{Number(holding.cdi_percent) || 0}% do CDI</Chip>
@@ -1133,12 +1384,22 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                                 {holding.auto_price ? <Chip>Auto cotação</Chip> : <Chip>Preço manual</Chip>}
                               </>
                             )}
-                            {!holding.is_active && <Chip>Inativo</Chip>}
+                            <ActivityChip $active={holding.is_active}>
+                              {holding.is_active ? 'Ativo' : 'Desativado'}
+                            </ActivityChip>
                           </ChipRow>
+                          {marketRating?.analysis_factors && marketRating.analysis_factors.length > 0 && (
+                            <details>
+                              <summary>Ver critérios da análise · nota {marketRating.score}/100</summary>
+                              <ul>
+                                {marketRating.analysis_factors.map((factor, index) => <li key={`${holding.ticker}-${index}`}>{factor}</li>)}
+                              </ul>
+                            </details>
+                          )}
                         </CardTitle>
                       </CardIdentity>
                       <Actions>
-                        <IconButton type="button" title={holding.is_active ? 'Desativar' : 'Ativar'} aria-label={`${holding.is_active ? 'Desativar' : 'Ativar'} ${holding.ticker}`} disabled={togglingIds.has(String(holding.id))} onClick={() => { void toggleActive(holding); }}>
+                        <IconButton $active={holding.is_active} type="button" title={holding.is_active ? 'Desativar' : 'Ativar'} aria-label={`${holding.is_active ? 'Desativar' : 'Ativar'} ${holding.ticker}`} disabled={bulkChanging || togglingIds.has(String(holding.id))} onClick={() => { void toggleActive(holding); }}>
                           {holding.is_active ? <Pause /> : <Play />}
                         </IconButton>
                         <IconButton type="button" title="Editar" aria-label={`Editar ${holding.ticker}`} onClick={() => openEdit(holding)}><Pencil /></IconButton>
@@ -1160,7 +1421,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                         <strong>{money(holding.profit_loss)}</strong>
                       </Metric>
                       <Metric $accent="income">
-                        <small>{holding.asset_type === 'renda_fixa' ? 'Rendimento líquido mensal' : 'Por pagamento'}</small>
+                        <small>{holding.asset_type === 'renda_fixa' ? 'Rendimento líquido no mês projetado' : 'Por pagamento'}</small>
                         <strong>{money(estimatedPayment)}</strong>
                       </Metric>
                     </Metrics>
@@ -1168,7 +1429,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                     <CardFooter>
                       <span>
                         {holding.asset_type === 'renda_fixa'
-                          ? `${money(holding.applied_amount ?? holding.invested_amount)} aplicado · ${Number(holding.cdi_percent) || 0}% do CDI · bruto ${money(grossFixedIncomeEstimate)} · IR ${money(estimatedTax)}`
+                          ? `${money(holding.applied_amount ?? holding.invested_amount)} aplicado · ${Number(holding.cdi_percent) || 0}% do CDI · bruto ${money(grossFixedIncomeEstimate)} · IR ${money(estimatedTax)} · líquido conforme ${projectedMonths[0] ? monthLabel(projectedMonths[0].month) : 'projeção'}`
                           : `${Number(holding.quantity)} cotas · ${perShare.format(Number(holding.dividend_per_share) || 0)} por cota`}
                         {holding.notes ? ` · ${holding.notes}` : ''}
                       </span>
@@ -1220,14 +1481,29 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                   type="text"
                   inputMode="decimal"
                   value={cdiRate}
-                  onChange={event => setCdiRate(event.target.value)}
+                  onChange={event => {
+                    setCdiRate(event.target.value);
+                    setCdiReferenceDate('');
+                    setCdiRateError('');
+                  }}
                   aria-describedby="div-cdi-rate-hint"
+                  disabled={cdiRateLoading}
                   required
                 />
               </Field>
             )}
           </ProjectionControls>
-          {isFixedIncome && <SectionDescription id="div-cdi-rate-hint">Taxa informada para estimar a projeção (exemplo: 13,65%).</SectionDescription>}
+          {isFixedIncome && (
+            <SectionDescription id="div-cdi-rate-hint">
+              {cdiRateLoading
+                ? 'Buscando CDI anualizado atual no Banco Central...'
+                : cdiRateError
+                  ? cdiRateError
+                  : cdiReferenceDate
+                    ? `Taxa anualizada do Banco Central (SGS), referência ${cdiReferenceDate}. Você pode editar para simular outros cenários.`
+                    : 'Taxa anual para simulação manual (exemplo: 13,65%).'}
+            </SectionDescription>
+          )}
           {projectedMonths.length ? projectedMonths.map(month => {
             const total = Number(month.total) || 0;
             return (
@@ -1243,7 +1519,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                 </Track>
                 {month.items.length > 0 && <small>{month.items.map(item => item.ticker).join(', ')}</small>}
                 {isFixedIncome && month.items.length > 0 && (
-                  <small>Bruto {money(month.gross_total)} · IR {money(month.tax_total)} · Líquido {money(month.net_total)}</small>
+                  <small>Bruto {money(month.gross_total)} · IR {((Number(month.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({money(month.tax_total)}) · Líquido {money(month.net_total)}</small>
                 )}
               </MonthRow>
             );
@@ -1274,7 +1550,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
               </PositionCount>
             </MonthTotal>
             <SectionDescription>{isFixedIncome
-              ? `Rendimento após IR de ${((Number(displayedProjection?.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}%; valores estimados e sujeitos a variação.`
+              ? `IR estimado de ${((Number(selectedMonth.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% conforme o prazo do investimento até o pagamento; os valores podem variar.`
               : 'Valores previstos; o pagamento efetivo pode variar.'}</SectionDescription>
             {selectedMonth.items.length ? (
               <DividendEntries aria-label="Detalhes dos proventos previstos">
@@ -1290,7 +1566,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                       </small>
                       {isFixedIncome && (
                         <small style={{ display: 'block', marginTop: 5 }}>
-                          Bruto {money(item.gross_amount)} · IR {money(item.tax_amount)} · Líquido {money(item.net_amount ?? item.amount)}
+                          Bruto {money(item.gross_amount)} · IR {((Number(item.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({money(item.tax_amount)}) · Líquido {money(item.net_amount ?? item.amount)}
                         </small>
                       )}
                     </DividendInfo>

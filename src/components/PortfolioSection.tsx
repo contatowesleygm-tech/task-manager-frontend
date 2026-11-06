@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { LoaderCircle, Wallet } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, PanelTitle } from './ui';
+import MarketAnalysisTag from './MarketAnalysisTag';
 import { Description, FormGrid, Note, RatingBadge, Section, Stat, Stats, TableWrap, Wrap } from './marketUi';
 import { DivergingBars, StackedBar, ValueBars } from './charts';
-import { analyzeFiiPortfolio, simulatePortfolioSwitch } from '../api';
+import { analyzeFiiPortfolio, ratingFromScore, simulatePortfolioSwitch } from '../api';
 import { formatBRL, formatPercent } from '../utils/format';
 import { apiErrorMessage } from '../utils/errors';
+import { qualityTagMeta, ratingMeta } from '../utils/rating';
 import type { MarketRiskProfile, PortfolioAnalysis, PortfolioParams, PortfolioPosition, PortfolioRecommendation, SwitchSimulation } from '../types';
 
 const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
@@ -85,6 +87,8 @@ function horizonLabel(months: number): string {
 
 function PositionCard({ position, bestRate }: { position: PortfolioPosition; bestRate: number }) {
   const meta = recommendationMeta[position.recommendation];
+  const qualityRating = position.quality_score === null ? undefined : ratingFromScore(position.quality_score);
+  const qualityTag = qualityRating ? qualityTagMeta('fiis', qualityRating, 'fii_fundamentals') : undefined;
   const spread = position.dividend_yield_12m_pct === null ? null : position.dividend_yield_12m_pct - bestRate;
   return (
     <Card $color={meta.color}>
@@ -93,7 +97,22 @@ function PositionCard({ position, bestRate }: { position: PortfolioPosition; bes
           <h3>{position.ticker}</h3>
           {position.name && <small>{position.name}</small>}
         </div>
-        <RatingBadge $color={meta.color}>{meta.label}</RatingBadge>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6 }}>
+          <RatingBadge $color={meta.color}>{meta.label}</RatingBadge>
+          {qualityTag && (
+            <MarketAnalysisTag
+              label={qualityTag.label}
+              color={qualityTag.color}
+              details={[
+                `Nota ${position.quality_score}/100 · classificação: ${qualityRating ? ratingMeta[qualityRating].label : 'indisponível'}.`,
+                ...(position.quality_reasons ?? ['Fatores detalhados não disponíveis.']),
+                `Patrimônio líquido: ${position.net_assets == null ? 'indisponível' : formatBRL(position.net_assets)}.`,
+                `Valor patrimonial por cota: ${position.vp_per_share == null ? 'indisponível' : formatBRL(position.vp_per_share)}.`,
+                'Vacância: não disponível nos dados padronizados consultados; não foi estimada nem pontuada.',
+              ]}
+            />
+          )}
+        </div>
       </header>
       {position.sell_score !== null && (
         <Meter $value={position.sell_score} $color={meta.color}>
@@ -111,7 +130,21 @@ function PositionCard({ position, bestRate }: { position: PortfolioPosition; bes
           </dd>
         </div>
         {position.p_vp !== undefined && <div><dt>P/VP</dt><dd>{decimal.format(position.p_vp)}</dd></div>}
-        {position.quality_score !== null && <div><dt>Nota de qualidade</dt><dd>{position.quality_score}{position.quality_rating ? ` · ${position.quality_rating}` : ''}</dd></div>}
+        {position.quality_score !== null && (
+          <div>
+            <dt>Indicadores do FII</dt>
+            <dd>{position.quality_score}/100 · {qualityRating ? ratingMeta[qualityRating].label : position.quality_rating}</dd>
+          </div>
+        )}
+        {position.fund_age_years != null && <div><dt>Idade do fundo</dt><dd>{decimal.format(position.fund_age_years)} anos</dd></div>}
+        {position.net_assets != null && <div><dt>Patrimônio líquido</dt><dd>{formatBRL(position.net_assets)}</dd></div>}
+        {position.vp_per_share != null && <div><dt>Valor patrimonial por cota</dt><dd>{formatBRL(position.vp_per_share)}</dd></div>}
+        {position.months_paid_pct != null && <div><dt>Meses com proventos</dt><dd>{formatPercent(position.months_paid_pct)}</dd></div>}
+        {position.variation_coefficient_24m != null && <div><dt>Variação dos proventos (24m)</dt><dd>{formatPercent(position.variation_coefficient_24m * 100)}</dd></div>}
+        {position.excess_over_cdi_pp != null && <div><dt>Retorno vs. CDI</dt><dd>{position.excess_over_cdi_pp > 0 ? '+' : ''}{decimal.format(position.excess_over_cdi_pp)} p.p.</dd></div>}
+        {position.annual_volatility_pct != null && <div><dt>Volatilidade anual</dt><dd>{formatPercent(position.annual_volatility_pct)}</dd></div>}
+        {position.max_drawdown_pct != null && <div><dt>Queda máxima histórica</dt><dd>{formatPercent(position.max_drawdown_pct)}</dd></div>}
+        <div><dt>Vacância</dt><dd>Sem dado padronizado</dd></div>
         <div>
           <dt>Ganho ou perda</dt>
           <dd style={{ color: position.gain === null ? undefined : position.gain >= 0 ? 'var(--success)' : 'var(--error)' }}>
@@ -120,7 +153,8 @@ function PositionCard({ position, bestRate }: { position: PortfolioPosition; bes
         </div>
         <div><dt>Imposto se vender tudo</dt><dd>{position.cost_basis_missing ? '—' : formatBRL(position.estimated_sale_tax)}</dd></div>
       </dl>
-      <ul>{position.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+      {position.quality_reasons && position.quality_reasons.length > 0 && <ul>{position.quality_reasons.map((reason, index) => <li key={`quality-${index}`}>{reason}</li>)}</ul>}
+      <ul>{position.reasons.map((reason, index) => <li key={`recommendation-${index}`}>{reason}</li>)}</ul>
     </Card>
   );
 }

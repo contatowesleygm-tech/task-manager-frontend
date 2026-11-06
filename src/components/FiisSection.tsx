@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import styled from 'styled-components';
+import MarketAnalysisTag from './MarketAnalysisTag';
 import { Building2, LoaderCircle } from 'lucide-react';
 import { Button, EmptyState, Field, PanelTitle } from './ui';
-import { Description, FormGrid, Head, Note, RatingBadge, Section, Stat, Stats, TableWrap, Wrap } from './marketUi';
+import { Description, FormGrid, Head, Note, Section, Stat, Stats, TableWrap, Wrap } from './marketUi';
 import { ColumnChart, DivergingBars, ValueBars } from './charts';
 import { compareFiis } from '../api';
 import { formatBRL, formatCompactBRL, formatPercent, maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
@@ -303,14 +304,14 @@ export default function FiisSection() {
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
             <div>
               <PanelTitle>Comparativo detalhado</PanelTitle>
-              <Description>Rentabilidade e oscilação calculadas no período comparado.</Description>
+              <Description>Rentabilidade, risco, idade, patrimônio e proventos calculados no período. A vacância não está disponível na base padronizada consultada e não entra na nota.</Description>
             </div>
             <TableWrap>
               <table>
                 <thead>
                   <tr>
                     <th>Fundo</th><th>Nota</th><th>Segmento</th><th>Idade</th><th>Yield 12m</th><th>P/VP</th>
-                    <th>Ao ano</th><th>Vs. CDI</th><th>Oscilação</th><th>Meses pagos</th><th>Patrimônio</th><th>Cotistas</th>
+                    <th>Ao ano</th><th>Vs. CDI</th><th>Oscilação</th><th>Queda máx.</th><th>Meses pagos</th><th>Variação proventos</th><th>Patrimônio</th><th>Cotistas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -319,7 +320,19 @@ export default function FiisSection() {
                     return (
                       <tr key={item.ticker}>
                         <td title={item.name}>{item.ticker}</td>
-                        <td><RatingBadge $color={ratingMeta[item.rating].color}>{item.score} · {item.rating_label}</RatingBadge></td>
+                        <td>
+                          <MarketAnalysisTag
+                            label={`${item.score} · ${item.rating_label}`}
+                            color={ratingMeta[item.rating].color}
+                            details={[
+                              ...item.reasons,
+                              `Valor patrimonial por cota: ${formatBRL(item.market.vp_per_share)}.`,
+                              `P/VP atual: ${decimal.format(item.market.p_vp)}.`,
+                              `Patrimônio líquido atual: ${item.equity.net_assets === null ? 'indisponível' : formatCompactBRL(item.equity.net_assets)}.`,
+                              'Vacância: não disponível nos dados padronizados consultados; não foi estimada nem pontuada.',
+                            ]}
+                          />
+                        </td>
                         <td>{item.segment ?? '—'}</td>
                         <td>{decimal.format(ageOf(item))} anos</td>
                         <td>{dash(item.distributions.dividend_yield_12m_pct, value => formatPercent(value))}</td>
@@ -329,7 +342,9 @@ export default function FiisSection() {
                           {dash(window?.excess_over_cdi_pp, value => `${value > 0 ? '+' : ''}${decimal.format(value)} p.p.`)}
                         </td>
                         <td>{dash(window?.annual_volatility_pct, value => formatPercent(value))}</td>
+                        <td>{dash(window?.max_drawdown_pct, value => formatPercent(value))}</td>
                         <td>{dash(item.distributions.months_paid_pct, value => `${Math.round(value)}%`)}</td>
+                        <td>{dash(item.distributions.variation_coefficient_24m, value => formatPercent(value * 100))}</td>
                         <td>{dash(item.equity.net_assets, value => formatCompactBRL(value))}</td>
                         <td>{dash(item.equity.holders, value => value.toLocaleString('pt-BR'))}</td>
                       </tr>
@@ -343,7 +358,14 @@ export default function FiisSection() {
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
             <div>
               <PanelTitle>Por que cada nota</PanelTitle>
-              <Description>Os principais motivos que pesaram na classificação de cada fundo.</Description>
+              <Description>
+                Nota baseada em retorno total contra CDI (até 25 pontos), queda máxima (10), volatilidade (5),
+                regularidade dos pagamentos (até ±8), variação dos proventos em 24 meses (±4),
+                crescimento dos proventos em 3 anos (até +6), P/VP (até 0,90: +6; até 1,05: +3; acima de 1,15: -6),
+                idade (menos de 3 anos: -6; 5 anos ou mais: +3; 10 anos ou mais: +6) e patrimônio líquido (de -8 a +5:
+                abaixo de R$ 100 mi = -8; R$ 100–300 mi = -3; R$ 300 mi a menos de R$ 1 bi = +2; R$ 1 bi ou mais = +5).
+                Vacância não está disponível na base padronizada consultada e não é pontuada.
+              </Description>
             </div>
             <ReasonGrid>
               {funds.map(item => (
@@ -353,7 +375,17 @@ export default function FiisSection() {
                       <h3>{item.ticker}</h3>
                       <small>{item.name}</small>
                     </div>
-                    <RatingBadge $color={ratingMeta[item.rating].color}>{item.score} · {item.rating_label}</RatingBadge>
+                    <MarketAnalysisTag
+                      label={`${item.score} · ${item.rating_label}`}
+                      color={ratingMeta[item.rating].color}
+                      details={[
+                        ...item.reasons,
+                        `Valor patrimonial por cota: ${formatBRL(item.market.vp_per_share)}.`,
+                        `P/VP atual: ${decimal.format(item.market.p_vp)}.`,
+                        `Patrimônio líquido atual: ${item.equity.net_assets === null ? 'indisponível' : formatCompactBRL(item.equity.net_assets)}.`,
+                        'Vacância: não disponível nos dados padronizados consultados; não foi estimada nem pontuada.',
+                      ]}
+                    />
                   </header>
                   <ul>{item.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
                 </ReasonCard>

@@ -36,7 +36,7 @@ import type {
   PaginatedScheduleAlerts, ScheduleEvent, SchedulePayload, Task, TaskId, TaskPagination,
   TaskPriority, ScheduleQuery, UpdateGoalPayload, UpdateTaskPayload, AuthCredentials, AuthUser, RegisterResult,
   PaginatedStudyResources, StudyResource, StudyResourceArea, StudyResourcePayload,
-  FinanceAccount, FinanceAccountPayload, FinanceSummary, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload,
+  FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload,
 } from '../types';
 import { resolveRoute, type AppPage } from './paths';
 
@@ -210,8 +210,10 @@ export default function AppRoutes() {
       setTasks(result.data);
       setTaskPagination(result.pagination);
       if (result.pagination.page !== page) setTaskPage(result.pagination.page);
+      return true;
     } catch {
       setError('Não foi possível carregar as tarefas. Confira se a API está ligada em http://localhost:3333.');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -702,7 +704,7 @@ export default function AppRoutes() {
     } finally { setSaving(false); }
   }, [loadFinances]);
 
-  const updateFinanceAccountFromPage = useCallback(async (id: TaskId, payload: FinanceAccountPayload) => {
+  const updateFinanceAccountFromPage = useCallback(async (id: TaskId, payload: FinanceAccountUpdatePayload) => {
     setError(''); setNotice(''); setSaving(true);
     try {
       await updateFinanceAccount(id, payload);
@@ -966,6 +968,52 @@ export default function AppRoutes() {
       setStatusChanging(false);
     }
   }, [tasks]);
+
+  const handleDeactivateAllTasks = useCallback(async () => {
+    const activeCount = taskPagination.activeTotal;
+    if (activeCount === 0 || !window.confirm(
+      `Desativar todas as ${activeCount} tarefas ativas? O histórico será preservado.`
+    )) return;
+
+    setError('');
+    setNotice('');
+    setStatusChanging(true);
+    let deactivatedCount = 0;
+    try {
+      const firstPage = await getTasks(1, 100);
+      const allTasks = [...firstPage.data];
+      for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+        const result = await getTasks(page, 100);
+        allTasks.push(...result.data);
+      }
+
+      for (const task of allTasks) {
+        if (!task.is_active) continue;
+        await deactivateTask(task.id);
+        deactivatedCount += 1;
+      }
+
+      const refreshed = await loadTasks(taskPage, taskLimit);
+      if (!refreshed) {
+        setError('Todas as tarefas foram desativadas, mas não foi possível atualizar a lista.');
+        return;
+      }
+      setNotice(deactivatedCount === 0
+        ? 'Todas as tarefas já estavam desativadas.'
+        : `${deactivatedCount} ${deactivatedCount === 1 ? 'tarefa desativada' : 'tarefas desativadas'}. O histórico foi preservado.`);
+    } catch (err: any) {
+      const apiMessage = err?.response?.data?.error;
+      const refreshed = await loadTasks(taskPage, taskLimit);
+      const failureMessage = deactivatedCount > 0
+        ? `Desativação parcial: ${deactivatedCount} tarefas foram desativadas antes da falha.${apiMessage ? ` Erro: ${apiMessage}` : ''}`
+        : apiMessage || 'Não foi possível desativar todas as tarefas.';
+      setError(refreshed
+        ? failureMessage
+        : `${failureMessage} Também não foi possível atualizar a lista.`);
+    } finally {
+      setStatusChanging(false);
+    }
+  }, [loadTasks, taskLimit, taskPage, taskPagination.activeTotal]);
 
   const handleDelete = useCallback(async (task: Task) => {
     setTaskPendingDelete(task);
@@ -1311,6 +1359,8 @@ export default function AppRoutes() {
             setPriorityFilter(filter);
             setTaskPage(1);
           }}
+          onDeactivateAll={() => { void handleDeactivateAllTasks(); }}
+          statusChanging={statusChanging}
           onDelete={(task) => { void handleDelete(task); }}
         />
       );

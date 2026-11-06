@@ -138,6 +138,7 @@ export interface FinanceAccount {
   currency: FinanceCurrency;
   balance: number;
   balance_brl: number;
+  is_active: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -158,6 +159,7 @@ export interface FinanceSummary {
   monthly_liability_payments_brl?: number;
   investment_portfolio_invested_brl?: number;
   investment_portfolio_value_brl?: number;
+  investment_portfolio_total_value_brl?: number;
   investment_portfolio_profit_loss_brl?: number;
 }
 
@@ -167,6 +169,10 @@ export interface FinanceAccountPayload {
   currency: FinanceCurrency;
   balance: number;
 }
+
+export type FinanceAccountUpdatePayload = Partial<FinanceAccountPayload> & {
+  is_active?: boolean;
+};
 
 export type FinanceAssetType = 'carro' | 'moto' | 'imovel' | 'outro';
 export type FinanceOwnershipStatus = 'proprio' | 'financiado' | 'alugado' | 'outro';
@@ -495,6 +501,7 @@ export interface DividendProjectionItem {
   gross_amount?: number | string;
   tax_amount?: number | string;
   net_amount?: number | string;
+  income_tax_rate?: number | string;
   payment_date: string;
 }
 
@@ -503,6 +510,7 @@ export interface DividendProjectionMonth {
   total: number | string;
   gross_total?: number | string;
   tax_total?: number | string;
+  income_tax_rate?: number | string;
   net_total?: number | string;
   items: DividendProjectionItem[];
 }
@@ -521,6 +529,12 @@ export interface DividendProjection {
   monthly_average_gross?: number | string;
   monthly_average_tax?: number | string;
   months: DividendProjectionMonth[];
+}
+
+export interface DividendCdiRate {
+  rate: number;
+  reference_date: string;
+  source: string;
 }
 
 export interface Task {
@@ -550,6 +564,8 @@ export interface MarketOpportunityItem {
   reasons: string[];
   top_assets?: string[];
   in_portfolio?: boolean;
+  analysis_type?: 'fii_fundamentals' | 'equity_market_history' | 'short_term_market';
+  analysis_factors?: string[];
 }
 
 export interface MarketOpportunities {
@@ -704,9 +720,15 @@ export interface FiiFund {
     dividend_yield_12m_pct: number | null;
     average_dividend_yield_5y_pct: number | null;
     months_paid_pct: number | null;
+    variation_coefficient_24m?: number | null;
     growth_cagr_3y_pct: number | null;
   };
-  equity: { net_assets: number | null; holders: number | null };
+  equity: {
+    net_assets: number | null;
+    holders: number | null;
+    holders_growth_5y_pct?: number | null;
+    vp_cagr_5y_pct?: number | null;
+  };
   yearly_history: FiiYear[];
   score: number;
   rating: OpportunityRating;
@@ -769,6 +791,16 @@ export interface PortfolioPosition {
   sell_score: number | null;
   quality_score: number | null;
   quality_rating?: string;
+  quality_reasons?: string[];
+  vp_per_share?: number | null;
+  net_assets?: number | null;
+  fund_age_years?: number | null;
+  listed_age_years?: number | null;
+  variation_coefficient_24m?: number | null;
+  months_paid_pct?: number | null;
+  annual_volatility_pct?: number | null;
+  excess_over_cdi_pp?: number | null;
+  vacancy_rate_pct?: number | null;
   dividend_yield_12m_pct: number | null;
   yield_on_cost_pct?: number | null;
   p_vp?: number;

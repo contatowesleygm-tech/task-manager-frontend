@@ -6,8 +6,8 @@ import type {
   SchedulePayload, ScheduleEvent, ScheduleQuery, Task, TaskId, UpdateGoalPayload, UpdateTaskPayload,
   AssistantMessage, AuthCredentials, AuthUser, PaginatedStudyResources, RegisterResult, StudyResource, StudyResourceArea, StudyResourcePayload,
   SubscriptionPayment, SubscriptionPlansResponse, UserSubscription,
-  FinanceAccount, FinanceAccountPayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
-  DividendAssetTypeOption, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
+  FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
+  DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
   BacktestParams, BacktestResult, FiiCompareParams, FiiComparison, PortfolioAnalysis, PortfolioParams, SwitchSimulation,
@@ -220,6 +220,12 @@ function normalizeOpportunityItem(raw: Record<string, unknown>, index: number): 
     reasons: Array.isArray(raw.reasons) ? raw.reasons.map(String) : [],
     top_assets: topAssets,
     in_portfolio: raw.in_portfolio === true,
+    analysis_type: raw.analysis_type === 'fii_fundamentals'
+      || raw.analysis_type === 'equity_market_history'
+      || raw.analysis_type === 'short_term_market'
+      ? raw.analysis_type
+      : undefined,
+    analysis_factors: Array.isArray(raw.analysis_factors) ? raw.analysis_factors.map(String) : undefined,
   };
 }
 
@@ -320,6 +326,11 @@ export async function getDividendProjection(from?: string, months?: number, cdiR
   return response.data.data;
 }
 
+export async function getDividendCdiRate(): Promise<DividendCdiRate> {
+  const response = await api.get<{ data: DividendCdiRate }>('/dividends/cdi-rate');
+  return response.data.data;
+}
+
 export async function createDividendHolding(payload: DividendHoldingPayload): Promise<DividendHolding> {
   const response = await api.post<{ data: DividendHolding }>('/dividends', payload);
   return response.data.data;
@@ -375,6 +386,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     monthly_liability_payments_brl: Number(raw?.monthly_liability_payments_brl ?? raw?.monthly_payments ?? 0),
     investment_portfolio_invested_brl: Number(raw?.investment_portfolio_invested_brl ?? 0),
     investment_portfolio_value_brl: Number(raw?.investment_portfolio_value_brl ?? 0),
+    investment_portfolio_total_value_brl: Number(raw?.investment_portfolio_total_value_brl ?? raw?.investment_portfolio_value_brl ?? 0),
     investment_portfolio_profit_loss_brl: Number(raw?.investment_portfolio_profit_loss_brl ?? 0),
   };
 }
@@ -387,6 +399,7 @@ export async function getFinanceAccounts(): Promise<FinanceAccount[]> {
     currency: (account.currency ?? 'BRL') as FinanceCurrency,
     balance: Number(account.balance) || 0,
     balance_brl: Number(account.balance_brl ?? account.balance) || 0,
+    is_active: account.is_active ?? true,
   }));
 }
 
@@ -395,7 +408,7 @@ export async function createFinanceAccount(payload: FinanceAccountPayload): Prom
   return 'data' in response.data && response.data.data ? response.data.data : response.data as FinanceAccount;
 }
 
-export async function updateFinanceAccount(id: TaskId, payload: FinanceAccountPayload): Promise<FinanceAccount> {
+export async function updateFinanceAccount(id: TaskId, payload: FinanceAccountUpdatePayload): Promise<FinanceAccount> {
   const response = await api.patch<{ data?: FinanceAccount } | FinanceAccount>(
     `/finances/accounts/${encodeURIComponent(String(id))}`,
     payload
