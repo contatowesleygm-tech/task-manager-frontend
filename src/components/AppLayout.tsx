@@ -36,6 +36,17 @@ const menuStorageKey = 'task-manager-menu-order';
 const sidebarCollapsedStorageKey = 'task-manager-sidebar-collapsed';
 const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends', 'fixed-income', 'opportunities']);
 
+const TopbarIntro = styled.span`
+  color: var(--muted);
+  font-size: 13px;
+`;
+
+const UserGreeting = styled.strong`
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+`;
+
 const TopbarLogout = styled.button`
   display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--error-border); border-radius: var(--radius-md);
   color: var(--error); background: var(--error-soft); font-size: 12px; font-weight: 700; cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
@@ -401,8 +412,8 @@ export default function AppLayout({
       </Sidebar>
       <Main>
         <Topbar>
-          <span style={{ color: 'var(--muted)', fontSize: 13 }}>Seu espaço de produtividade</span>
-          <strong style={{ fontSize: 13 }}>Olá, {user.name || user.email}</strong>
+          <TopbarIntro>Seu espaço de produtividade</TopbarIntro>
+          <UserGreeting title={user.name || user.email}>Olá, {user.name || user.email}</UserGreeting>
           <ThemeToggle />
           <TopbarLogout type="button" onClick={onLogout} title="Sair da conta" aria-label="Sair da conta">
             <LogOut />Sair
