@@ -1,5 +1,5 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
-import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Flag, Gauge, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
+import { Archive, ArchiveRestore, Banknote, Bell, BookOpen, CalendarRange, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Flag, Fuel, Gauge, Languages, ListChecks, LogOut, PiggyBank, Receipt, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import styled from 'styled-components';
 import {
@@ -27,6 +27,7 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'finances', label: 'Finanças', path: '/finances', page: 'finances', icon: Banknote },
   { id: 'english-study', label: 'Inglês', path: '/english-study', page: 'english-study', icon: Languages },
   { id: 'expenses', label: 'Despesas', path: '/expenses', page: 'expenses', icon: Receipt },
+  { id: 'fuel-calculator', label: 'Calculadora de combustível', path: '/fuel-calculator', page: 'fuel-calculator', icon: Fuel },
   { id: 'dividends', label: 'Dividendos', path: '/dividends', page: 'dividends', icon: PiggyBank },
   { id: 'fixed-income', label: 'Renda fixa', path: '/fixed-income', page: 'fixed-income', icon: PiggyBank },
   { id: 'opportunities', label: 'Oportunidades', path: '/opportunities', page: 'opportunities', icon: Gauge },

@@ -8,7 +8,8 @@ import type {
   SubscriptionPayment, SubscriptionPlansResponse, UserSubscription,
   FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
   DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
-  Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, PaginatedExpenses,
+  Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, FuelCalculatorPayload,
+  FuelCalculatorResult, PaginatedExpenses,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
   BacktestParams, BacktestResult, FiiCompareParams, FiiComparison, PortfolioAnalysis, PortfolioParams, SwitchSimulation,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
@@ -158,6 +159,130 @@ export async function getExpenseCategories(): Promise<ExpenseCategory[]> {
 export async function getExpenseSummary(month?: string): Promise<ExpenseSummary> {
   const response = await api.get<{ data: ExpenseSummary }>('/expenses/summary', { params: { month } });
   return response.data.data;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isFuelCostEstimate(value: unknown): boolean {
+  return isRecord(value)
+    && isNullableNumber(value.liters)
+    && isNullableNumber(value.cost)
+    && isNullableNumber(value.cost_per_km);
+}
+
+function isFuelCalculatorResult(value: unknown): value is FuelCalculatorResult {
+  if (!isRecord(value) || !isRecord(value.vehicle) || !isRecord(value.fuel_prices)
+    || !isRecord(value.comparison) || !isRecord(value.estimates)) return false;
+
+  const { comparison, estimates, fuel_prices: prices, vehicle } = value;
+  return typeof vehicle.model === 'string'
+    && (vehicle.type === 'carro' || vehicle.type === 'moto')
+    && (value.analysis_method === 'consumo_informado' || value.analysis_method === 'regra_dos_70_por_cento')
+    && (value.selected_fuel === 'gasolina' || value.selected_fuel === 'alcool')
+    && typeof prices.gasolina === 'number'
+    && typeof prices.alcool === 'number'
+    && isNullableNumber(comparison.ethanol_price_as_percentage_of_gasoline)
+    && isNullableNumber(comparison.ethanol_break_even_price)
+    && (comparison.recommended_fuel === 'gasolina' || comparison.recommended_fuel === 'alcool')
+    && typeof comparison.selected_fuel_is_cheaper === 'boolean'
+    && isNullableNumber(comparison.estimated_savings_for_distance)
+    && isNullableNumber(estimates.distance_km)
+    && isFuelCostEstimate(estimates.gasolina)
+    && isFuelCostEstimate(estimates.alcool)
+    && isFuelCostEstimate(estimates.selected_fuel_cost)
+    && Array.isArray(value.notes)
+    && value.notes.every(note => typeof note === 'string');
+}
+
+function getFuelCalculatorResponseIssues(value: unknown): string[] {
+  if (!isRecord(value)) return ['resposta deve ser um objeto'];
+
+  const issues: string[] = [];
+  const requireRecord = (parent: Record<string, unknown>, key: string, path: string): Record<string, unknown> | undefined => {
+    const child = parent[key];
+    if (!isRecord(child)) {
+      issues.push(`${path}: ausente ou não é um objeto`);
+      return undefined;
+    }
+    return child;
+  };
+  const requireString = (parent: Record<string, unknown>, key: string, path: string) => {
+    if (typeof parent[key] !== 'string') issues.push(`${path}: ausente ou inválido`);
+  };
+  const requireNullableNumber = (parent: Record<string, unknown>, key: string, path: string) => {
+    if (!isNullableNumber(parent[key])) issues.push(`${path}: ausente ou deve ser número ou null`);
+  };
+
+  const vehicle = requireRecord(value, 'vehicle', 'vehicle');
+  if (vehicle) {
+    requireString(vehicle, 'model', 'vehicle.model');
+    if (vehicle.type !== 'carro' && vehicle.type !== 'moto') issues.push('vehicle.type: ausente ou deve ser "carro" ou "moto"');
+  }
+
+  if (value.analysis_method !== 'consumo_informado' && value.analysis_method !== 'regra_dos_70_por_cento') {
+    issues.push('analysis_method: ausente ou inválido');
+  }
+  if (value.selected_fuel !== 'gasolina' && value.selected_fuel !== 'alcool') {
+    issues.push('selected_fuel: ausente ou inválido');
+  }
+
+  const prices = requireRecord(value, 'fuel_prices', 'fuel_prices');
+  if (prices) {
+    if (typeof prices.gasolina !== 'number') issues.push('fuel_prices.gasolina: ausente ou inválido');
+    if (typeof prices.alcool !== 'number') issues.push('fuel_prices.alcool: ausente ou inválido');
+  }
+
+  const comparison = requireRecord(value, 'comparison', 'comparison');
+  if (comparison) {
+    requireNullableNumber(comparison, 'ethanol_price_as_percentage_of_gasoline', 'comparison.ethanol_price_as_percentage_of_gasoline');
+    requireNullableNumber(comparison, 'ethanol_break_even_price', 'comparison.ethanol_break_even_price');
+    if (comparison.recommended_fuel !== 'gasolina' && comparison.recommended_fuel !== 'alcool') {
+      issues.push('comparison.recommended_fuel: ausente ou inválido');
+    }
+    if (typeof comparison.selected_fuel_is_cheaper !== 'boolean') {
+      issues.push('comparison.selected_fuel_is_cheaper: ausente ou inválido');
+    }
+    requireNullableNumber(comparison, 'estimated_savings_for_distance', 'comparison.estimated_savings_for_distance');
+  }
+
+  const estimates = requireRecord(value, 'estimates', 'estimates');
+  if (estimates) {
+    requireNullableNumber(estimates, 'distance_km', 'estimates.distance_km');
+    for (const fuel of ['gasolina', 'alcool', 'selected_fuel_cost']) {
+      const estimate = requireRecord(estimates, fuel, `estimates.${fuel}`);
+      if (estimate) {
+        requireNullableNumber(estimate, 'liters', `estimates.${fuel}.liters`);
+        requireNullableNumber(estimate, 'cost', `estimates.${fuel}.cost`);
+        requireNullableNumber(estimate, 'cost_per_km', `estimates.${fuel}.cost_per_km`);
+      }
+    }
+  }
+
+  if (value.notes !== undefined && (!Array.isArray(value.notes) || !value.notes.every(note => typeof note === 'string'))) {
+    issues.push('notes: formato inválido; esperado uma lista de textos');
+  }
+
+  return issues;
+}
+
+export async function calculateFuelCost(payload: FuelCalculatorPayload): Promise<FuelCalculatorResult> {
+  const response = await api.post<unknown>('/expenses/fuel-calculator', payload);
+  const body = response.data;
+  const responseData = isRecord(body) && 'data' in body ? body.data : body;
+  const result = isRecord(responseData) && responseData.notes === undefined
+    ? { ...responseData, notes: [] }
+    : responseData;
+  if (!isFuelCalculatorResult(result)) {
+    const issues = getFuelCalculatorResponseIssues(result);
+    throw new Error(`Resposta do calculador incompleta. Campos ausentes ou inválidos: ${issues.join('; ') || 'formato inesperado'}.`);
+  }
+  return result;
 }
 
 export async function createExpense(payload: ExpensePayload): Promise<Expense> {

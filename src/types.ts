@@ -385,6 +385,45 @@ export interface ExpenseSummary {
   daily_spending?: Array<{ date: string; total: number | string; expense_count?: number | string }>;
 }
 
+export type FuelType = 'gasolina' | 'alcool';
+export type VehicleType = 'carro' | 'moto';
+
+export interface FuelCalculatorPayload {
+  vehicle_model: string;
+  vehicle_type: VehicleType;
+  fuel_type: FuelType;
+  fuel_prices: Record<FuelType, number>;
+  consumption_km_per_l: Partial<Record<FuelType, number>>;
+  distance_km?: number;
+}
+
+export interface FuelCostEstimate {
+  liters: number | null;
+  cost: number | null;
+  cost_per_km: number | null;
+}
+
+export interface FuelCalculatorResult {
+  vehicle: { model: string; type: VehicleType };
+  analysis_method: 'consumo_informado' | 'regra_dos_70_por_cento';
+  selected_fuel: FuelType;
+  fuel_prices: Record<FuelType, number>;
+  comparison: {
+    ethanol_price_as_percentage_of_gasoline: number | null;
+    ethanol_break_even_price: number | null;
+    recommended_fuel: FuelType;
+    selected_fuel_is_cheaper: boolean;
+    estimated_savings_for_distance: number | null;
+  };
+  estimates: {
+    distance_km: number | null;
+    gasolina: FuelCostEstimate;
+    alcool: FuelCostEstimate;
+    selected_fuel_cost: FuelCostEstimate;
+  };
+  notes: string[];
+}
+
 export type DividendAssetType =
   | 'fii' | 'fiagro' | 'acao' | 'bdr' | 'etf' | 'fundo' | 'tesouro' | 'cdb' | 'lci_lca'
   | 'debenture' | 'previdencia' | 'cripto' | 'acao_us' | 'renda_fixa' | 'outro';

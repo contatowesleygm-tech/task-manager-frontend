@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import axios from 'axios';
-import { Check, ChevronRight, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
+import { Check, ChevronRight, Eye, EyeOff, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, Modal, Panel, PanelTitle, PageHero } from '../components/ui';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -572,6 +572,7 @@ function money(value: number | string | undefined): string {
 }
 
 const PRICE_REFRESH_DAY_KEY = 'dividends-price-refresh-day';
+const HIDE_VALUES_KEY = 'dividend-values-hidden';
 
 function currentMonth(): string {
   const now = new Date();
@@ -757,6 +758,20 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const [bulkChanging, setBulkChanging] = useState(false);
   const [hasActiveHoldings, setHasActiveHoldings] = useState<boolean | null>(null);
   const [loadingActivityStatus, setLoadingActivityStatus] = useState(true);
+  const [valuesHidden, setValuesHidden] = useState(() => {
+    try {
+      return localStorage.getItem(HIDE_VALUES_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIDE_VALUES_KEY, String(valuesHidden));
+    } catch {
+      // The toggle still works for the current page if storage is unavailable.
+    }
+  }, [valuesHidden]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -775,6 +790,11 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const selectedType = typeById.get(form.asset_type) ?? assetTypes[0];
   const showSegmentField = Boolean(selectedType?.uses_fii_segment);
   const needsReference = form.frequency !== 'mensal';
+  const displayMoney = (value: number | string | undefined) => valuesHidden ? '••••••' : money(value);
+
+  function toggleValuesVisibility() {
+    setValuesHidden(current => !current);
+  }
 
   useEffect(() => {
     let active = true;
@@ -1176,6 +1196,16 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Button
+            type="button"
+            aria-label={valuesHidden ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+            aria-pressed={valuesHidden}
+            title={valuesHidden ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+            onClick={toggleValuesVisibility}
+          >
+            {valuesHidden ? <Eye /> : <EyeOff />}
+            {valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
+          </Button>
           {!isFixedIncome && (
             <Button type="button" onClick={() => void refreshPrices({ force: true })} disabled={refreshingPrices}>
               <RefreshCw />{refreshingPrices ? 'Atualizando...' : 'Atualizar cotações'}
@@ -1198,21 +1228,21 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                 <ProjectionComparison aria-label="Comparação de rendimento bruto e líquido">
                   <div>
                     <small>Bruto</small>
-                    <strong>{money(displayedProjection?.monthly_average_gross)}</strong>
+                    <strong>{displayMoney(displayedProjection?.monthly_average_gross)}</strong>
                   </div>
                   <div>
                     <small>Líquido</small>
-                    <strong>{money(displayedProjection?.monthly_average)}</strong>
+                    <strong>{displayMoney(displayedProjection?.monthly_average)}</strong>
                   </div>
                 </ProjectionComparison>
                 <SummaryNote>
-                  No período: bruto {money(displayedProjection?.gross_total)} − IR {money(displayedProjection?.tax_total)} = líquido {money(displayedProjection?.period_total)} · {months} meses
+                  No período: bruto {displayMoney(displayedProjection?.gross_total)} − IR {displayMoney(displayedProjection?.tax_total)} = líquido {displayMoney(displayedProjection?.period_total)} · {months} meses
                 </SummaryNote>
               </>
             ) : (
               <>
-                <strong>{money(displayedProjection?.monthly_average)}</strong>
-                <SummaryNote>{money(displayedProjection?.period_total)} no período · {months} meses</SummaryNote>
+                <strong>{displayMoney(displayedProjection?.monthly_average)}</strong>
+                <SummaryNote>{displayMoney(displayedProjection?.period_total)} no período · {months} meses</SummaryNote>
               </>
             )}
           </div>
@@ -1220,21 +1250,21 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
         <SummaryCard>
           <div>
             <small>Total investido</small>
-            <strong>{money(displayedPortfolio?.invested_total)}</strong>
+            <strong>{displayMoney(displayedPortfolio?.invested_total)}</strong>
             <SummaryNote>Capital aplicado</SummaryNote>
           </div>
         </SummaryCard>
         <SummaryCard>
           <div>
             <small>Valor atual da carteira</small>
-            <strong>{money(displayedPortfolio?.current_total)}</strong>
+            <strong>{displayMoney(displayedPortfolio?.current_total)}</strong>
             <SummaryNote>Valor de mercado da carteira</SummaryNote>
           </div>
         </SummaryCard>
         <SummaryCard $tone="result" $negative={profitLoss < 0}>
           <div>
             <small><TrendingUp size={14} />Resultado</small>
-            <strong>{money(displayedPortfolio?.profit_loss)}</strong>
+            <strong>{displayMoney(displayedPortfolio?.profit_loss)}</strong>
             <SummaryNote>
               {displayedPortfolio?.profit_loss_percent != null
                 ? `${profitLoss < 0 ? '' : '+'}${Number(displayedPortfolio.profit_loss_percent).toFixed(2)}% sobre o investido`
@@ -1410,27 +1440,27 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                     <Metrics>
                       <Metric>
                         <small>{holding.asset_type === 'renda_fixa' ? 'Aplicado' : 'Investido'}</small>
-                        <strong>{money(holding.applied_amount ?? holding.invested_amount)}</strong>
+                        <strong>{displayMoney(holding.applied_amount ?? holding.invested_amount)}</strong>
                       </Metric>
                       <Metric>
                         <small>Valor atual</small>
-                        <strong>{money(holding.current_value)}</strong>
+                        <strong>{displayMoney(holding.current_value)}</strong>
                       </Metric>
                       <Metric $accent={resultNegative ? 'negative' : 'result'}>
                         <small>Resultado</small>
-                        <strong>{money(holding.profit_loss)}</strong>
+                        <strong>{displayMoney(holding.profit_loss)}</strong>
                       </Metric>
                       <Metric $accent="income">
                         <small>{holding.asset_type === 'renda_fixa' ? 'Rendimento líquido no mês projetado' : 'Por pagamento'}</small>
-                        <strong>{money(estimatedPayment)}</strong>
+                        <strong>{displayMoney(estimatedPayment)}</strong>
                       </Metric>
                     </Metrics>
 
                     <CardFooter>
                       <span>
                         {holding.asset_type === 'renda_fixa'
-                          ? `${money(holding.applied_amount ?? holding.invested_amount)} aplicado · ${Number(holding.cdi_percent) || 0}% do CDI · bruto ${money(grossFixedIncomeEstimate)} · IR ${money(estimatedTax)} · líquido conforme ${projectedMonths[0] ? monthLabel(projectedMonths[0].month) : 'projeção'}`
-                          : `${Number(holding.quantity)} cotas · ${perShare.format(Number(holding.dividend_per_share) || 0)} por cota`}
+                          ? `${displayMoney(holding.applied_amount ?? holding.invested_amount)} aplicado · ${Number(holding.cdi_percent) || 0}% do CDI · bruto ${displayMoney(grossFixedIncomeEstimate)} · IR ${displayMoney(estimatedTax)} · líquido conforme ${projectedMonths[0] ? monthLabel(projectedMonths[0].month) : 'projeção'}`
+                          : `${Number(holding.quantity)} cotas · ${valuesHidden ? '••••••' : perShare.format(Number(holding.dividend_per_share) || 0)} por cota`}
                         {holding.notes ? ` · ${holding.notes}` : ''}
                       </span>
                     </CardFooter>
@@ -1510,16 +1540,18 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
               <MonthRow
                 key={month.month}
                 type="button"
-                aria-label={`Ver detalhes dos proventos de ${monthLabel(month.month)}, estimados em ${money(total)} líquidos`}
+                aria-label={valuesHidden
+                  ? `Ver detalhes dos proventos de ${monthLabel(month.month)}`
+                  : `Ver detalhes dos proventos de ${monthLabel(month.month)}, estimados em ${money(total)} líquidos`}
                 onClick={() => setSelectedMonth(month)}
               >
-                <span><strong>{monthLabel(month.month)}</strong><span>{money(total)}</span><ChevronRight aria-hidden="true" /></span>
+                <span><strong>{monthLabel(month.month)}</strong><span>{displayMoney(total)}</span><ChevronRight aria-hidden="true" /></span>
                 <Track aria-hidden="true">
                   <span style={{ width: `${Math.min((total / maxMonth) * 100, 100)}%` }} />
                 </Track>
                 {month.items.length > 0 && <small>{month.items.map(item => item.ticker).join(', ')}</small>}
                 {isFixedIncome && month.items.length > 0 && (
-                  <small>Bruto {money(month.gross_total)} · IR {((Number(month.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({money(month.tax_total)}) · Líquido {money(month.net_total)}</small>
+                  <small>Bruto {displayMoney(month.gross_total)} · IR {((Number(month.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({displayMoney(month.tax_total)}) · Líquido {displayMoney(month.net_total)}</small>
                 )}
               </MonthRow>
             );
@@ -1538,10 +1570,10 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
             <MonthTotal>
               <div>
                 <small>{isFixedIncome ? 'Total líquido estimado no mês' : 'Total estimado no mês'}</small>
-                <strong>{money(selectedMonth.total)}</strong>
+                <strong>{displayMoney(selectedMonth.total)}</strong>
                 {isFixedIncome && (
                   <small style={{ display: 'block', marginTop: 6, color: 'var(--muted)' }}>
-                    Bruto {money(selectedMonth.gross_total)} · IR {money(selectedMonth.tax_total)}
+                    Bruto {displayMoney(selectedMonth.gross_total)} · IR {displayMoney(selectedMonth.tax_total)}
                   </small>
                 )}
               </div>
@@ -1562,16 +1594,16 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                       <small>
                         {item.asset_type === 'renda_fixa'
                           ? `${Number(item.cdi_percent) || 0}% do CDI${item.investment_date ? ` · aplicado desde ${paymentDateLabel(item.investment_date)}` : ''}`
-                          : `${quantityLabel(item.quantity ?? 0)} cotas × ${perShare.format(Number(item.dividend_per_share) || 0)} por cota`}
+                          : `${quantityLabel(item.quantity ?? 0)} cotas × ${valuesHidden ? '••••••' : perShare.format(Number(item.dividend_per_share) || 0)} por cota`}
                       </small>
                       {isFixedIncome && (
                         <small style={{ display: 'block', marginTop: 5 }}>
-                          Bruto {money(item.gross_amount)} · IR {((Number(item.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({money(item.tax_amount)}) · Líquido {money(item.net_amount ?? item.amount)}
+                          Bruto {displayMoney(item.gross_amount)} · IR {((Number(item.income_tax_rate) || 0) * 100).toLocaleString('pt-BR')}% ({displayMoney(item.tax_amount)}) · Líquido {displayMoney(item.net_amount ?? item.amount)}
                         </small>
                       )}
                     </DividendInfo>
                     <DividendPayout>
-                      <strong>{money(item.amount)}</strong>
+                      <strong>{displayMoney(item.amount)}</strong>
                       <small>{isFixedIncome ? 'Valor líquido a receber' : 'Provento previsto'}</small>
                     </DividendPayout>
                   </DividendEntry>

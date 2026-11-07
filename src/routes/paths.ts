@@ -1,6 +1,6 @@
 import type { TaskId } from '../types';
 
-export type AppPage = 'login' | 'list' | 'create' | 'details' | 'planning' | 'today' | 'week' | 'month' | 'completed' | 'goals' | 'history' | 'schedule' | 'study-resources' | 'study-resource-edit' | 'finances' | 'english-study' | 'expenses' | 'dividends' | 'fixed-income' | 'opportunities';
+export type AppPage = 'login' | 'list' | 'create' | 'details' | 'planning' | 'today' | 'week' | 'month' | 'completed' | 'goals' | 'history' | 'schedule' | 'study-resources' | 'study-resource-edit' | 'finances' | 'english-study' | 'expenses' | 'fuel-calculator' | 'dividends' | 'fixed-income' | 'opportunities';
 
 const routePages: Record<string, AppPage> = {
   '/login': 'login',
@@ -19,6 +19,7 @@ const routePages: Record<string, AppPage> = {
   '/finances': 'finances',
   '/english-study': 'english-study',
   '/expenses': 'expenses',
+  '/fuel-calculator': 'fuel-calculator',
   '/dividends': 'dividends',
   '/fixed-income': 'fixed-income',
   '/opportunities': 'opportunities',
