@@ -388,6 +388,40 @@ export interface ExpenseSummary {
 export type FuelType = 'gasolina' | 'alcool';
 export type VehicleType = 'carro' | 'moto';
 
+export interface DailyRouteLegPayload {
+  id: number;
+  origin: string;
+  destination: string;
+  distance_km: number;
+  fuel_type: FuelType;
+  route_description?: string | null;
+  route_options?: Array<{ distance_km: number; duration_seconds: number }>;
+  selected_route_index?: number | null;
+}
+
+export interface DailyRouteDayPayload {
+  vehicle_model: string;
+  vehicle_type: VehicleType;
+  selected_fuel: FuelType;
+  fuel_prices: Record<FuelType, number | null>;
+  consumption_km_per_l: Record<FuelType, number | null>;
+  legs: DailyRouteLegPayload[];
+}
+
+export interface SavedDailyRouteDay extends DailyRouteDayPayload {
+  route_date: string;
+  total_distance_km: number;
+  total_fuel_liters: number | null;
+  total_fuel_cost: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaginatedDailyRouteDays {
+  data: SavedDailyRouteDay[];
+  pagination: Omit<TaskPagination, 'activeTotal' | 'inactiveTotal'>;
+}
+
 export interface FuelCalculatorPayload {
   vehicle_model: string;
   vehicle_type: VehicleType;

@@ -9,7 +9,7 @@ import type {
   FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
   DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, FuelCalculatorPayload,
-  FuelCalculatorResult, PaginatedExpenses,
+  FuelCalculatorResult, PaginatedExpenses, DailyRouteDayPayload, SavedDailyRouteDay, PaginatedDailyRouteDays,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
   BacktestParams, BacktestResult, FiiCompareParams, FiiComparison, PortfolioAnalysis, PortfolioParams, SwitchSimulation,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
@@ -283,6 +283,21 @@ export async function calculateFuelCost(payload: FuelCalculatorPayload): Promise
     throw new Error(`Resposta do calculador incompleta. Campos ausentes ou inválidos: ${issues.join('; ') || 'formato inesperado'}.`);
   }
   return result;
+}
+
+export async function getDailyRouteDays(page = 1, limit = 20): Promise<PaginatedDailyRouteDays> {
+  const response = await api.get<PaginatedDailyRouteDays>('/expenses/daily-routes', {
+    params: { page, limit },
+  });
+  return response.data;
+}
+
+export async function saveDailyRouteDay(date: string, payload: DailyRouteDayPayload): Promise<SavedDailyRouteDay> {
+  const response = await api.put<{ data: SavedDailyRouteDay }>(
+    `/expenses/daily-routes/${encodeURIComponent(date)}`,
+    payload
+  );
+  return response.data.data;
 }
 
 export async function createExpense(payload: ExpensePayload): Promise<Expense> {

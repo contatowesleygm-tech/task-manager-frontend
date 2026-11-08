@@ -7,26 +7,26 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import { maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import {
-  createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
+  analyzeFiiPortfolio, createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
   getDividendCdiRate, getDividendProjection, getDividendTypes, getMarketOpportunities,
   refreshDividendPrices, updateDividendHolding,
 } from '../api';
 import type {
   DividendAssetType, DividendAssetTypeOption, DividendFilters, DividendFrequency, DividendHolding,
   DividendHoldingPayload, DividendPortfolio, DividendProjection, FiiSegment, MarketOpportunityItem,
-  PaginatedDividendHoldings,
+  PaginatedDividendHoldings, PortfolioAnalysis, PortfolioParams, PortfolioPosition,
 } from '../types';
 import { qualityTagMeta, ratingMeta } from '../utils/rating';
 
 const Page = styled.div`
   display: grid;
-  gap: 20px;
+  gap: 22px;
 `;
 
 const SummaryGrid = styled.div`
   display: grid;
-  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr));
+  gap: 14px;
   @media (max-width: 1100px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 520px) { grid-template-columns: 1fr; }
 `;
@@ -38,7 +38,18 @@ const SummaryCard = styled(Panel)<{ $tone?: 'income' | 'result'; $negative?: boo
   flex-direction: column;
   justify-content: space-between;
   gap: 12px;
-  padding: 17px 19px;
+  padding: 19px 20px;
+  overflow: hidden;
+  position: relative;
+  &::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: ${({ $tone, $negative }) => $tone === 'income'
+      ? 'var(--success)'
+      : $tone === 'result' ? ($negative ? 'var(--error)' : 'var(--success)') : 'var(--border)'};
+    content: '';
+  }
   border-color: ${({ $tone, $negative }) => {
     if ($tone === 'income') return 'color-mix(in srgb, var(--success) 32%, var(--border))';
     if ($tone === 'result') return `color-mix(in srgb, ${$negative ? 'var(--error)' : 'var(--success)'} 32%, var(--border))`;
@@ -107,7 +118,9 @@ const SectionHeading = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 15px;
+  padding-bottom: 14px;
+  margin-bottom: 17px;
+  border-bottom: 1px solid var(--border);
   ${PanelTitle} { margin: 0; }
   @media (max-width: 520px) {
     align-items: flex-start;
@@ -144,28 +157,29 @@ const PositionCount = styled.span`
 
 const ContentGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .75fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, .8fr);
+  gap: 16px;
   align-items: start;
-  @media (max-width: 960px) { grid-template-columns: 1fr; }
+  @media (max-width: 1040px) { grid-template-columns: 1fr; }
 `;
 
 const AssetsPanel = styled(Panel)`
-  padding: 18px;
+  min-width: 0;
+  padding: 21px;
 `;
 
 const Toolbar = styled.form`
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   align-items: end;
   gap: 10px;
-  padding: 13px;
-  margin-bottom: 17px;
+  padding: 14px;
+  margin-bottom: 18px;
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: 15px;
   background: var(--surface-raised);
   ${Field} { margin: 0; }
-  @media (max-width: 1100px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 700px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 480px) { grid-template-columns: 1fr; }
 `;
 
@@ -183,7 +197,7 @@ const ToolbarActions = styled.div`
 
 const ProjectionPanel = styled(Panel)`
   min-width: 0;
-  padding: 19px;
+  padding: 21px;
 `;
 
 const ProjectionControls = styled.div`
@@ -207,9 +221,9 @@ const List = styled.div`
 const Card = styled.article<{ $inactive: boolean }>`
   display: grid;
   gap: 14px;
-  padding: 16px 17px;
+  padding: 17px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 17px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, var(--surface)), var(--surface));
   box-shadow: 0 6px 18px var(--shadow);
@@ -227,7 +241,7 @@ const CardTop = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  @media (max-width: 620px) { flex-direction: column; }
+  @media (max-width: 440px) { gap: 8px; }
 `;
 
 const CardIdentity = styled.div`
@@ -318,12 +332,13 @@ const ActivityChip = styled(Chip)<{ $active: boolean }>`
 const Metrics = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 9px;
   @media (max-width: 820px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 `;
 
 const Metric = styled.div<{ $accent?: 'result' | 'income' | 'negative' }>`
-  padding: 11px 12px;
+  min-width: 0;
+  padding: 12px;
   border: 1px solid ${({ $accent }) => {
     if ($accent === 'result') return 'color-mix(in srgb, var(--success) 35%, var(--border))';
     if ($accent === 'negative') return 'color-mix(in srgb, var(--error) 35%, var(--border))';
@@ -348,13 +363,15 @@ const Metric = styled.div<{ $accent?: 'result' | 'income' | 'negative' }>`
   strong {
     display: block;
     margin-top: 5px;
+    overflow-wrap: anywhere;
     color: ${({ $accent }) => {
       if ($accent === 'result') return 'var(--success)';
       if ($accent === 'negative') return 'var(--error)';
       if ($accent === 'income') return 'var(--primary-strong)';
       return 'var(--text)';
     }};
-    font-size: 14px;
+    font-size: clamp(13px, 1.25vw, 15px);
+    font-variant-numeric: tabular-nums;
     letter-spacing: -.02em;
   }
 `;
@@ -571,6 +588,19 @@ function money(value: number | string | undefined): string {
   return currency.format(Number(value) || 0);
 }
 
+function portfolioSaleTag(position: PortfolioPosition): { label: string; color: string } {
+  switch (position.recommendation) {
+    case 'vender':
+      return { label: 'Avaliar venda · 100%', color: 'var(--warning)' };
+    case 'reduzir':
+      return { label: 'Avaliar redução · 50%', color: 'var(--warning)' };
+    case 'manter':
+      return { label: 'Sinal: manter', color: 'var(--success)' };
+    case 'sem_dados':
+      return { label: 'Análise indisponível', color: 'var(--muted)' };
+  }
+}
+
 const PRICE_REFRESH_DAY_KEY = 'dividends-price-refresh-day';
 const HIDE_VALUES_KEY = 'dividend-values-hidden';
 
@@ -739,6 +769,9 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const [marketRatings, setMarketRatings] = useState<Map<string, MarketOpportunityItem>>(() => new Map());
   const [marketRatingsError, setMarketRatingsError] = useState('');
   const [marketRatingsLoaded, setMarketRatingsLoaded] = useState(false);
+  const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysis>();
+  const [portfolioAnalysisError, setPortfolioAnalysisError] = useState('');
+  const [portfolioAnalysisLoaded, setPortfolioAnalysisLoaded] = useState(false);
   const [projection, setProjection] = useState<DividendProjection>();
   const [selectedMonth, setSelectedMonth] = useState<DividendProjection['months'][number] | null>(null);
   const [portfolio, setPortfolio] = useState<DividendPortfolio>();
@@ -853,6 +886,34 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
           setMarketRatingsError(getErrorMessage(loadError, 'Não foi possível carregar as etiquetas de análise de mercado.'));
           setMarketRatingsLoaded(true);
         }
+      });
+    return () => { active = false; };
+  }, [isFixedIncome, refreshVersion]);
+
+  useEffect(() => {
+    if (isFixedIncome) return undefined;
+    let active = true;
+    const params: PortfolioParams = {
+      perfil: 'moderado',
+      anos: 5,
+      prazo_meses: 12,
+      cdi_percent: 100,
+      lci_percent: 90,
+    };
+    setPortfolioAnalysis(undefined);
+    setPortfolioAnalysisError('');
+    setPortfolioAnalysisLoaded(false);
+    void analyzeFiiPortfolio(params)
+      .then(analysis => {
+        if (active) setPortfolioAnalysis(analysis);
+      })
+      .catch(loadError => {
+        if (active) {
+          setPortfolioAnalysisError(getErrorMessage(loadError, 'Não foi possível comparar os FIIs com a renda fixa.'));
+        }
+      })
+      .finally(() => {
+        if (active) setPortfolioAnalysisLoaded(true);
       });
     return () => { active = false; };
   }, [isFixedIncome, refreshVersion]);
@@ -1339,6 +1400,15 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                 : 'Perfil moderado. FIIs: patrimônio, idade, P/VP, regularidade dos proventos, retorno e risco histórico; vacância não disponível em fonte padronizada. Ações: retorno ajustado por proventos, CDI, volatilidade e queda máxima; sem balanços, lucro ou dívida. Nota 65+ favorável; 45–64 neutra; 30–44 atenção; abaixo de 30 evitar.'}
             </SectionDescription>
           )}
+          {!isFixedIncome && (
+            <SectionDescription role={portfolioAnalysisError ? 'alert' : 'note'} style={{ marginTop: -10 }}>
+              {portfolioAnalysisError
+                ? `A comparação de FIIs com renda fixa não está disponível: ${portfolioAnalysisError}`
+                : portfolioAnalysisLoaded
+                  ? `Sinais de venda para FIIs/Fiagros com base em renda fixa líquida, qualidade e histórico de até 5 anos (prazo de renda fixa: 12 meses). São estimativas, não ordens de venda; o resultado atual, inclusive prejuízo, não determina o sinal sozinho.`
+                  : 'Comparação de FIIs com renda fixa em andamento...'}
+            </SectionDescription>
+          )}
 
           {loading ? (
             <EmptyState><LoaderCircle /><p>Carregando ativos...</p></EmptyState>
@@ -1373,6 +1443,10 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                 const qualityTag = marketRating
                   ? qualityTagMeta(analysisClass, marketRating.rating, marketRating.analysis_type)
                   : undefined;
+                const fiiPosition = holding.is_active && (holding.asset_type === 'fii' || holding.asset_type === 'fiagro')
+                  ? portfolioAnalysis?.positions.find(position => position.ticker.toUpperCase() === holding.ticker.toUpperCase())
+                  : undefined;
+                const saleTag = fiiPosition ? portfolioSaleTag(fiiPosition) : undefined;
                 return (
                   <Card key={String(holding.id)} $inactive={!holding.is_active}>
                     <CardTop>
@@ -1399,6 +1473,26 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                                 ]}
                               />
                             )}
+                            {saleTag && fiiPosition && (
+                              <MarketAnalysisTag
+                                label={saleTag.label}
+                                color={saleTag.color}
+                                details={[
+                                  `Sinal quantitativo: ${saleTag.label}${fiiPosition.sell_score === null ? '' : ` · nota ${fiiPosition.sell_score}/100`}.`,
+                                  `Resultado estimado nesta análise: ${fiiPosition.gain === null
+                                    ? 'preço médio indisponível'
+                                    : fiiPosition.gain < 0
+                                      ? `prejuízo de ${money(Math.abs(fiiPosition.gain))}`
+                                      : `lucro de ${money(fiiPosition.gain)}`}.`,
+                                  ...fiiPosition.reasons,
+                                  'A recomendação não é garantia de retorno. O prejuízo passado, isoladamente, não define se manter ou vender; considere objetivos, impostos, liquidez e sua avaliação do ativo.',
+                                ]}
+                              />
+                            )}
+                            {holding.is_active && (holding.asset_type === 'fii' || holding.asset_type === 'fiagro')
+                              && portfolioAnalysisLoaded && !portfolioAnalysisError && !fiiPosition && (
+                                <Chip>Sem sinal de renda fixa</Chip>
+                              )}
                             {analysisClass && marketRatingsLoaded && !marketRatingsError && !marketRating && (
                               <Chip>Sem análise de mercado</Chip>
                             )}

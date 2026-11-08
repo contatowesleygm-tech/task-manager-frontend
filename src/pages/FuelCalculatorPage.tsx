@@ -121,7 +121,7 @@ interface FuelRequestError {
   details: string[];
 }
 
-type VehiclePreset = 'hb20-2016' | 'cg-160' | 'custom';
+type VehiclePreset = 'hb20-2016' | 'cg-160' | 'bros-150-2012' | 'custom';
 
 const fuelLabels: Record<FuelType, string> = { gasolina: 'Gasolina', alcool: 'Álcool' };
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -226,6 +226,7 @@ function requiredPositiveNumber(value: string, label: string): number {
 function getVehiclePreset(model: string): VehiclePreset {
   if (model === 'Hyundai HB20 2016 1.0') return 'hb20-2016';
   if (model === 'Honda CG 160') return 'cg-160';
+  if (model === 'Honda NXR 150 Bros 2012') return 'bros-150-2012';
   return 'custom';
 }
 
@@ -266,6 +267,17 @@ export default function FuelCalculatorPage() {
         vehicle_type: 'moto',
         gasoline_consumption: '40',
         alcohol_consumption: '30',
+      }));
+      return;
+    }
+
+    if (preset === 'bros-150-2012') {
+      setFuelForm(current => ({
+        ...current,
+        vehicle_model: 'Honda NXR 150 Bros 2012',
+        vehicle_type: 'moto',
+        gasoline_consumption: '30',
+        alcohol_consumption: '25',
       }));
       return;
     }
@@ -347,9 +359,15 @@ export default function FuelCalculatorPage() {
             <select id="fuel-vehicle-preset" value={getVehiclePreset(fuelForm.vehicle_model)} onChange={event => selectVehiclePreset(event.target.value as VehiclePreset)}>
               <option value="hb20-2016">Hyundai HB20 2016 1.0</option>
               <option value="cg-160">Honda CG 160</option>
+              <option value="bros-150-2012">Honda NXR 150 Bros 2012</option>
               <option value="custom">Outro veículo</option>
             </select>
           </Field>
+          {getVehiclePreset(fuelForm.vehicle_model) === 'bros-150-2012' && (
+            <p style={{ gridColumn: '1 / -1', margin: '-8px 0 2px', color: 'var(--muted)', fontSize: 12, lineHeight: 1.5 }}>
+              Consumos iniciais aproximados para a Bros 150: 30 km/L na gasolina e 25 km/L no álcool. Ajuste para a média real da sua moto.
+            </p>
+          )}
           {getVehiclePreset(fuelForm.vehicle_model) === 'custom' && (
             <Field htmlFor="fuel-vehicle-model">Modelo do veículo *
               <input id="fuel-vehicle-model" maxLength={100} value={fuelForm.vehicle_model} onChange={event => setFuelForm(current => ({ ...current, vehicle_model: event.target.value }))} placeholder="Digite o modelo" required />

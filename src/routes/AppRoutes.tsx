@@ -25,6 +25,7 @@ import FinancesPage from '../pages/FinancesPage';
 import EnglishStudyPage from '../pages/EnglishStudyPage';
 import ExpensesPage from '../pages/ExpensesPage';
 import FuelCalculatorPage from '../pages/FuelCalculatorPage';
+import DailyRoutesPage from '../pages/DailyRoutesPage';
 import DividendsPage from '../pages/DividendsPage';
 import OpportunitiesPage from '../pages/OpportunitiesPage';
 import TaskDetailsPage from '../pages/TaskDetailsPage';
@@ -1251,6 +1252,9 @@ export default function AppRoutes() {
       break;
     case 'fuel-calculator':
       content = <FuelCalculatorPage />;
+      break;
+    case 'daily-routes':
+      content = <DailyRoutesPage />;
       break;
     case 'english-study':
       content = (
