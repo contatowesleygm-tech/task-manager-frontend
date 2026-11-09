@@ -8,13 +8,13 @@ import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import { maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import {
   analyzeFiiPortfolio, createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
-  getDividendCdiRate, getDividendProjection, getDividendTypes, getMarketOpportunities,
+  getDividendCdiRate, getDividendProjection, getDividendTypes, getFixedIncomeHistory, getMarketOpportunities,
   refreshDividendPrices, updateDividendHolding,
 } from '../api';
 import type {
   DividendAssetType, DividendAssetTypeOption, DividendFilters, DividendFrequency, DividendHolding,
   DividendHoldingPayload, DividendPortfolio, DividendProjection, FiiSegment, MarketOpportunityItem,
-  PaginatedDividendHoldings, PortfolioAnalysis, PortfolioParams, PortfolioPosition,
+  FixedIncomeHistory, PaginatedDividendHoldings, PortfolioAnalysis, PortfolioParams, PortfolioPosition,
 } from '../types';
 import { qualityTagMeta, ratingMeta } from '../utils/rating';
 
@@ -216,6 +216,40 @@ const ProjectionControls = styled.div`
 const List = styled.div`
   display: grid;
   gap: 12px;
+`;
+
+const HistoryPanel = styled.div`
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-raised);
+`;
+
+const HistoryTableWrap = styled.div`
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+`;
+
+const HistoryTable = styled.table`
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 11px;
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th { position: sticky; top: 0; color: var(--muted); background: var(--surface); font-weight: 750; }
+  th:first-child, td:first-child { text-align: left; }
+  tr:last-child td { border-bottom: 0; }
+`;
+
+const HistoryNote = styled.p`
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
 `;
 
 const Card = styled.article<{ $inactive: boolean }>`
@@ -547,6 +581,7 @@ interface FormState {
   applied_amount: string;
   cdi_percent: string;
   investment_date: string;
+  income_tax_exempt: boolean;
   average_price: string;
   current_price: string;
   dividend_per_share: string;
@@ -656,7 +691,7 @@ function emptyForm(types: DividendAssetTypeOption[], assetType?: DividendAssetTy
   const first = assetType ? types.find(type => type.id === assetType) : types[0];
   const selected = first ?? fallbackTypes.find(type => type.id === assetType) ?? fallbackTypes[0];
   return {
-    ticker: '', name: '', asset_type: selected.id, fii_segment: '', quantity: '', applied_amount: '', cdi_percent: '', investment_date: '',
+    ticker: '', name: '', asset_type: selected.id, fii_segment: '', quantity: '', applied_amount: '', cdi_percent: '', investment_date: '', income_tax_exempt: false,
     average_price: '', current_price: '',
     dividend_per_share: '', frequency: selected.default_frequency,
     reference_month: '1', payment_day: '15', is_active: true, notes: '',
@@ -673,6 +708,7 @@ function formFrom(holding: DividendHolding): FormState {
     applied_amount: holding.applied_amount == null ? '' : moneyFromNumber(Number(holding.applied_amount)),
     cdi_percent: holding.cdi_percent == null ? '' : String(Number(holding.cdi_percent)),
     investment_date: holding.investment_date?.slice(0, 10) ?? '',
+    income_tax_exempt: Boolean(holding.income_tax_exempt),
     average_price: Number(holding.average_price) ? moneyFromNumber(Number(holding.average_price)) : '',
     current_price: holding.current_price == null ? '' : moneyFromNumber(Number(holding.current_price)),
     dividend_per_share: Number(holding.dividend_per_share) ? moneyFromNumber(Number(holding.dividend_per_share)) : '',
@@ -702,6 +738,14 @@ function makePayload(form: FormState, editing: DividendHolding | null = null): D
     ) {
       throw new Error('Informe uma data de investimento válida.');
     }
+    const todayParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const today = `${todayParts.find(part => part.type === 'year')?.value}-${todayParts.find(part => part.type === 'month')?.value}-${todayParts.find(part => part.type === 'day')?.value}`;
+    if (investmentDate > today) throw new Error('A data do investimento não pode estar no futuro.');
     if (!form.cdi_percent.trim()) throw new Error('Informe o percentual do CDI.');
     const paymentDay = Number(form.payment_day);
     if (!Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31) throw new Error('O dia do pagamento deve ser de 1 a 31.');
@@ -712,6 +756,7 @@ function makePayload(form: FormState, editing: DividendHolding | null = null): D
       applied_amount: appliedAmount,
       cdi_percent: cdiPercent,
       investment_date: investmentDate,
+      income_tax_exempt: form.income_tax_exempt,
       payment_day: paymentDay,
       is_active: form.is_active,
       notes: form.notes.trim() || null,
@@ -756,6 +801,93 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
   if (error instanceof Error) return error.message;
   return fallback;
+}
+
+function formatMonth(value: string) {
+  const [year, month] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+function FixedIncomeHistoryDetails({ holdingId }: { holdingId: DividendHolding['id'] }) {
+  const [expanded, setExpanded] = useState(false);
+  const [history, setHistory] = useState<FixedIncomeHistory>();
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [error, setError] = useState('');
+  const [retryVersion, setRetryVersion] = useState(0);
+
+  useEffect(() => {
+    if (!expanded) return undefined;
+    let active = true;
+    setLoadingHistory(true);
+    setError('');
+    void getFixedIncomeHistory(holdingId)
+      .then(data => { if (active) setHistory(data); })
+      .catch(loadError => { if (active) setError(getErrorMessage(loadError, 'Não foi possível carregar o histórico do investimento.')); })
+      .finally(() => { if (active) setLoadingHistory(false); });
+    return () => { active = false; };
+  }, [expanded, holdingId, retryVersion]);
+
+  if (!expanded) {
+    return <Button type="button" onClick={() => setExpanded(true)}><TrendingUp size={15} /> Ver histórico de rendimento</Button>;
+  }
+  if (loadingHistory) return <HistoryPanel role="status">Calculando o histórico com as taxas diárias do CDI...</HistoryPanel>;
+  if (error) {
+    return (
+      <div style={{ display: 'grid', gap: 8 }}>
+        <HistoryPanel role="alert" style={{ color: 'var(--error)' }}>{error}</HistoryPanel>
+        <Button type="button" onClick={() => setExpanded(false)}>Fechar histórico</Button>
+        <Button type="button" onClick={() => { setError(''); setRetryVersion(current => current + 1); }}>Tentar novamente</Button>
+      </div>
+    );
+  }
+  if (!history) return null;
+
+  const current = history.current;
+  return (
+    <HistoryPanel>
+      <div>
+        <strong>Acumulado até {paymentDateLabel(history.as_of_date)}: {money(current.net_balance)} líquidos</strong>
+        <HistoryNote>
+          Saldo bruto {money(current.gross_balance)} · ganho {money(current.accumulated_gain)} · IR estimado no resgate {money(current.estimated_tax)}
+          {' · '}CDI do Banco Central até {paymentDateLabel(history.cdi_reference_date)} × {history.cdi_percent}%.
+        </HistoryNote>
+      </div>
+      <div>
+        <strong>Resumo por ano</strong>
+        <HistoryTableWrap>
+          <HistoryTable>
+            <thead><tr><th>Ano</th><th>Rendimento no ano</th><th>Acumulado bruto</th><th>IR no resgate*</th><th>Saldo líquido*</th></tr></thead>
+            <tbody>{history.years.map(item => (
+              <tr key={item.year}>
+                <td>{item.year}</td><td>{money(item.gain_in_year)}</td><td>{money(item.end_balance)}</td>
+                <td>{history.income_tax_exempt ? 'Isento' : `${(item.income_tax_rate * 100).toLocaleString('pt-BR')}% · ${money(item.estimated_tax)}`}</td>
+                <td>{money(item.net_balance)}</td>
+              </tr>
+            ))}</tbody>
+          </HistoryTable>
+        </HistoryTableWrap>
+      </div>
+      <details>
+        <summary style={{ cursor: 'pointer', color: 'var(--primary-strong)', fontSize: 12, fontWeight: 750 }}>Ver evolução mês a mês</summary>
+        <HistoryTableWrap style={{ marginTop: 8, maxHeight: 340 }}>
+          <HistoryTable>
+            <thead><tr><th>Mês</th><th>Saldo bruto</th><th>Ganho acumulado</th><th>IR no resgate*</th><th>Saldo líquido*</th></tr></thead>
+            <tbody>{history.months.map(item => (
+              <tr key={item.month}>
+                <td>{formatMonth(item.month)}</td><td>{money(item.gross_balance)}</td><td>{money(item.accumulated_gain)}</td>
+                <td>{history.income_tax_exempt ? 'Isento' : `${(item.income_tax_rate * 100).toLocaleString('pt-BR')}% · ${money(item.estimated_tax)}`}</td>
+                <td>{money(item.net_balance)}</td>
+              </tr>
+            ))}</tbody>
+          </HistoryTable>
+        </HistoryTableWrap>
+      </details>
+      <HistoryNote>
+        * IR estimado sobre o ganho acumulado caso o resgate ocorresse naquela data: 22,5% até 180 dias, 20% de 181 a 360, 17,5% de 361 a 720 e 15% após 720 dias. Não inclui IOF, taxas, carência nem regras específicas do emissor; valores históricos não garantem rentabilidade futura. Fonte: {history.cdi_source}.
+      </HistoryNote>
+      <Button type="button" onClick={() => setExpanded(false)}>Fechar histórico</Button>
+    </HistoryPanel>
+  );
 }
 
 interface DividendsPageProps {
@@ -1499,6 +1631,7 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                             {holding.asset_type === 'renda_fixa' ? (
                               <>
                                 <Chip>{Number(holding.cdi_percent) || 0}% do CDI</Chip>
+                                <Chip>{holding.income_tax_exempt ? 'Isento de IR' : 'IR regressivo'}</Chip>
                                 {holding.investment_date && <Chip>Desde {paymentDateLabel(holding.investment_date)}</Chip>}
                               </>
                             ) : (
@@ -1558,6 +1691,9 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
                         {holding.notes ? ` · ${holding.notes}` : ''}
                       </span>
                     </CardFooter>
+                    {holding.asset_type === 'renda_fixa' && (
+                      <FixedIncomeHistoryDetails holdingId={holding.id} />
+                    )}
                   </Card>
                 );
               })}
@@ -1756,6 +1892,12 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
               </Field>
               <Field htmlFor="div-investment-date">Data do investimento *
                 <input id="div-investment-date" type="date" value={form.investment_date} onChange={event => setForm(current => ({ ...current, investment_date: event.target.value }))} required />
+              </Field>
+              <Field htmlFor="div-income-tax-exempt">Tributação do investimento
+                <select id="div-income-tax-exempt" value={String(form.income_tax_exempt)} onChange={event => setForm(current => ({ ...current, income_tax_exempt: event.target.value === 'true' }))}>
+                  <option value="false">Tributável · IR regressivo</option>
+                  <option value="true">Isento de IR · ex.: LCI/LCA</option>
+                </select>
               </Field>
             </>
           ) : (

@@ -7,7 +7,7 @@ import type {
   AssistantMessage, AuthCredentials, AuthUser, PaginatedStudyResources, RegisterResult, StudyResource, StudyResourceArea, StudyResourcePayload,
   SubscriptionPayment, SubscriptionPlansResponse, UserSubscription,
   FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
-  DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, PaginatedDividendHoldings,
+  DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, FixedIncomeHistory, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, FuelCalculatorPayload,
   FuelCalculatorResult, PaginatedExpenses, DailyRouteDayPayload, SavedDailyRouteDay, PaginatedDailyRouteDays,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
@@ -468,6 +468,14 @@ export async function getDividendProjection(from?: string, months?: number, cdiR
 
 export async function getDividendCdiRate(): Promise<DividendCdiRate> {
   const response = await api.get<{ data: DividendCdiRate }>('/dividends/cdi-rate');
+  return response.data.data;
+}
+
+export async function getFixedIncomeHistory(id: TaskId): Promise<FixedIncomeHistory> {
+  const response = await api.get<{ data: FixedIncomeHistory }>(
+    `/dividends/${encodeURIComponent(String(id))}/fixed-income-history`,
+    { timeout: 20000 }
+  );
   return response.data.data;
 }
 

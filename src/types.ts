@@ -484,6 +484,7 @@ export interface DividendHolding {
   applied_amount?: number | string | null;
   cdi_percent?: number | string | null;
   investment_date?: string | null;
+  income_tax_exempt?: boolean;
   dividend_per_share?: number | string | null;
   frequency: DividendFrequency;
   reference_month: number;
@@ -508,6 +509,7 @@ export interface DividendHoldingPayload {
   applied_amount?: number;
   cdi_percent?: number;
   investment_date?: string;
+  income_tax_exempt?: boolean;
   name?: string | null;
   fii_segment?: FiiSegment | null;
   dividend_per_share?: number;
@@ -575,6 +577,7 @@ export interface DividendProjectionItem {
   tax_amount?: number | string;
   net_amount?: number | string;
   income_tax_rate?: number | string;
+  income_tax_exempt?: boolean;
   payment_date: string;
 }
 
@@ -608,6 +611,47 @@ export interface DividendCdiRate {
   rate: number;
   reference_date: string;
   source: string;
+}
+
+export interface FixedIncomeHistoryMonth {
+  month: string;
+  as_of_date: string;
+  days_held: number;
+  gross_balance: number;
+  accumulated_gain: number;
+  income_tax_rate: number;
+  estimated_tax: number;
+  net_balance: number;
+}
+
+export interface FixedIncomeHistoryYear {
+  year: number;
+  start_balance: number;
+  end_balance: number;
+  gain_in_year: number;
+  accumulated_gain: number;
+  income_tax_rate: number;
+  estimated_tax: number;
+  net_balance: number;
+}
+
+export interface FixedIncomeHistory {
+  investment_date: string;
+  as_of_date: string;
+  cdi_reference_date: string;
+  applied_amount: number;
+  cdi_percent: number;
+  income_tax_exempt: boolean;
+  cdi_source: string;
+  current: {
+    gross_balance: number;
+    accumulated_gain: number;
+    income_tax_rate: number;
+    estimated_tax: number;
+    net_balance: number;
+  };
+  months: FixedIncomeHistoryMonth[];
+  years: FixedIncomeHistoryYear[];
 }
 
 export interface Task {
