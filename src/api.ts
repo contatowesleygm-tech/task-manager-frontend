@@ -10,7 +10,7 @@ import type {
   DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, FixedIncomeHistory, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, FuelCalculatorPayload,
   FuelCalculatorResult, PaginatedExpenses, DailyRouteDayPayload, SavedDailyRouteDay, PaginatedDailyRouteDays,
-  MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating,
+  MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating, MarketNewsResponse,
   BacktestParams, BacktestResult, FiiCompareParams, FiiComparison, PortfolioAnalysis, PortfolioParams, SwitchSimulation,
   EnglishStudyGoal, EnglishStudySession, EnglishStudySessionFilters, EnglishStudySessionPayload, EnglishStudySummary, PaginatedEnglishStudySessions,
 } from './types';
@@ -392,6 +392,14 @@ export async function getMarketOpportunities(perfil?: MarketRiskProfile): Promis
     portfolio: normalizeOpportunityList(body.portfolio),
     suggested_allocation: Object.entries(allocation).map(([id, percent]) => ({ id, percent: Number(percent) || 0 })),
   };
+}
+
+export async function getInvestmentNews(forceRefresh = false): Promise<MarketNewsResponse> {
+  const response = await api.get<MarketNewsResponse>('/market/news', {
+    params: forceRefresh ? { refresh: true } : undefined,
+    timeout: 20000,
+  });
+  return response.data;
 }
 
 export async function getMarketBacktest(params: BacktestParams): Promise<BacktestResult> {

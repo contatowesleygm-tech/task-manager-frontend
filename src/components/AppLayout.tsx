@@ -31,7 +31,7 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'daily-routes', label: 'Percursos do dia', path: '/daily-routes', page: 'daily-routes', icon: MapPinned },
   { id: 'dividends', label: 'Dividendos', path: '/dividends', page: 'dividends', icon: PiggyBank },
   { id: 'fixed-income', label: 'Renda fixa', path: '/fixed-income', page: 'fixed-income', icon: PiggyBank },
-  { id: 'opportunities', label: 'Oportunidades', path: '/opportunities', page: 'opportunities', icon: Gauge },
+  { id: 'opportunities', label: 'Mercado e notícias', path: '/opportunities', page: 'opportunities', icon: Gauge },
 ];
 
 const menuStorageKey = 'task-manager-menu-order';

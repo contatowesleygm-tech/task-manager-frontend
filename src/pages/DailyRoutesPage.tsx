@@ -39,6 +39,32 @@ interface FuelSettings {
   consumptions: Record<FuelType, number | null>;
 }
 
+type VehicleSelection = 'saved' | 'calculator' | 'hb20-2016' | 'cg-160' | 'bros-150-2012';
+
+const vehiclePresets: Record<Exclude<VehicleSelection, 'saved' | 'calculator'>, Pick<FuelSettings, 'model' | 'vehicleType' | 'consumptions'>> = {
+  'hb20-2016': {
+    model: 'Hyundai HB20 2016 1.0',
+    vehicleType: 'carro',
+    consumptions: { gasolina: null, alcool: null },
+  },
+  'cg-160': {
+    model: 'Honda CG 160',
+    vehicleType: 'moto',
+    consumptions: { gasolina: 40, alcool: 30 },
+  },
+  'bros-150-2012': {
+    model: 'Honda NXR 150 Bros 2012',
+    vehicleType: 'moto',
+    consumptions: { gasolina: 30, alcool: 25 },
+  },
+};
+
+const vehiclePresetOptions: Array<{ value: Exclude<VehicleSelection, 'saved' | 'calculator'>; label: string }> = [
+  { value: 'hb20-2016', label: 'Hyundai HB20 2016 1.0' },
+  { value: 'cg-160', label: 'Honda CG 160' },
+  { value: 'bros-150-2012', label: 'Honda NXR 150 Bros 2012' },
+];
+
 const routeStorageKey = 'task-manager-daily-routes-v1';
 const fuelFormStorageKey = 'task-manager-fuel-calculator-form-v1';
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -644,6 +670,7 @@ export default function DailyRoutesPage() {
   const [routeDays, setRouteDays] = useState<RouteDays>(initialRoutes.days);
   const [selectedDate, setSelectedDate] = useState(localDateString);
   const [fuelSettings] = useState(readFuelSettings);
+  const [vehicleSelection, setVehicleSelection] = useState<VehicleSelection>('saved');
   const [storageWarning, setStorageWarning] = useState(initialRoutes.warning);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -656,13 +683,19 @@ export default function DailyRoutesPage() {
   const [calculatingLegId, setCalculatingLegId] = useState<number | null>(null);
   const skipInitialSave = useRef(Boolean(initialRoutes.warning));
   const savedSelectedDay = historyDays.find(day => day.route_date === selectedDate);
-  const activeFuelSettings: FuelSettings = savedSelectedDay ? {
+  const activeFuelSettings: FuelSettings = vehicleSelection === 'saved' && savedSelectedDay ? {
     model: savedSelectedDay.vehicle_model,
     vehicleType: savedSelectedDay.vehicle_type,
     fuelType: savedSelectedDay.selected_fuel,
     prices: savedSelectedDay.fuel_prices,
     consumptions: savedSelectedDay.consumption_km_per_l,
-  } : fuelSettings;
+  } : vehicleSelection === 'calculator' || vehicleSelection === 'saved' ? fuelSettings : {
+    ...fuelSettings,
+    ...vehiclePresets[vehicleSelection],
+    consumptions: fuelSettings.model === vehiclePresets[vehicleSelection].model
+      ? fuelSettings.consumptions
+      : vehiclePresets[vehicleSelection].consumptions,
+  };
   const legs = routeDays[selectedDate] ?? [];
   const totals = legs.reduce((total, leg) => {
     const distance = parseDistance(leg.distanceKm);
@@ -831,6 +864,7 @@ export default function DailyRoutesPage() {
 
   function openSavedDay(day: SavedDailyRouteDay) {
     setSelectedDate(day.route_date);
+    setVehicleSelection('saved');
     setRouteDays(current => ({ ...current, [day.route_date]: routeLegsFromSavedDay(day) }));
     setHistoryNotice(`Exibindo o percurso salvo de ${formatRouteDate(day.route_date)}.`);
     setHistoryError(null);
@@ -908,9 +942,26 @@ export default function DailyRoutesPage() {
           <Field htmlFor="daily-route-date">Data do percurso
             <input id="daily-route-date" type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} />
           </Field>
+          <Field htmlFor="daily-route-vehicle">Veículo deste percurso
+            <select
+              id="daily-route-vehicle"
+              value={vehicleSelection === 'saved' && !savedSelectedDay ? 'calculator' : vehicleSelection}
+              onChange={event => setVehicleSelection(event.target.value as VehicleSelection)}
+            >
+              {savedSelectedDay && (
+                <option value="saved">Veículo do dia salvo: {savedSelectedDay.vehicle_model}</option>
+              )}
+              <option value="calculator">Veículo da calculadora: {fuelSettings.model}</option>
+              {vehiclePresetOptions
+                .filter(option => vehiclePresets[option.value].model !== fuelSettings.model)
+                .map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+            </select>
+          </Field>
           <VehicleNote>
             <strong><Fuel size={14} style={{ verticalAlign: 'text-bottom' }} /> {activeFuelSettings.model}</strong>
-            <span>Combustível padrão: {fuelLabels[activeFuelSettings.fuelType]}. Preços e consumos vêm da calculadora.</span>
+            <span>Combustível padrão: {fuelLabels[activeFuelSettings.fuelType]}. O veículo escolhido será salvo no histórico.</span>
             {(!activeFuelSettings.prices.gasolina || !activeFuelSettings.prices.alcool
               || !activeFuelSettings.consumptions.gasolina || !activeFuelSettings.consumptions.alcool)
               && <a href="/fuel-calculator">Configure preços e consumos dos combustíveis</a>}

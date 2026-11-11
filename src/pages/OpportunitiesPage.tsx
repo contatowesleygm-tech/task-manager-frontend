@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Gauge, LoaderCircle, Newspaper, RefreshCw, TrendingUp } from 'lucide-react';
 import styled from 'styled-components';
 import { Button, EmptyState, Field, PageHero, Panel, PanelTitle } from '../components/ui';
 import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import BacktestSection from '../components/BacktestSection';
 import FiisSection from '../components/FiisSection';
 import PortfolioSection from '../components/PortfolioSection';
-import { StackedBar } from '../components/charts';
-import { getMarketOpportunities } from '../api';
+import { ColumnChart, StackedBar } from '../components/charts';
+import { getInvestmentNews, getMarketOpportunities } from '../api';
 import { qualityTagMeta, ratingMeta } from '../utils/rating';
-import type { MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating } from '../types';
+import type {
+  MarketNewsArticle, MarketNewsCategory, MarketNewsResponse, MarketOpportunities, MarketOpportunityItem,
+  MarketRiskProfile, OpportunityRating,
+} from '../types';
 
-type Tab = 'oportunidades' | 'carteira' | 'simulacao' | 'fiis';
+type Tab = 'oportunidades' | 'noticias' | 'carteira' | 'simulacao' | 'fiis';
+type NewsFilter = 'todas' | MarketNewsCategory;
 
 const classColors: Record<string, string> = {
   renda_fixa: '#2563eb',
@@ -20,6 +24,23 @@ const classColors: Record<string, string> = {
   fiis: '#d97706',
   internacional: '#8b5cf6',
   cripto: '#f97316',
+};
+
+const newsCategories: Array<{ id: NewsFilter; label: string }> = [
+  { id: 'todas', label: 'Todas' },
+  { id: 'renda_fixa', label: 'Renda fixa' },
+  { id: 'acoes_br', label: 'Ações' },
+  { id: 'fiis', label: 'FIIs' },
+  { id: 'internacional', label: 'ETFs e exterior' },
+  { id: 'cripto', label: 'Cripto' },
+];
+
+const categoryLabels: Record<MarketNewsCategory, string> = {
+  acoes_br: 'Ações Brasil',
+  fiis: 'FIIs',
+  renda_fixa: 'Renda fixa',
+  internacional: 'ETFs e exterior',
+  cripto: 'Cripto',
 };
 
 const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
@@ -142,6 +163,52 @@ const Disclaimer = styled.p`
   line-height: 1.5;
 `;
 
+const NewsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 12px;
+`;
+
+const NewsCard = styled.article`
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  h3 { margin: 0; color: var(--text); font-size: 14px; line-height: 1.45; }
+  p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  small { color: var(--muted); font-size: 11px; }
+  a { color: var(--primary-strong); font-size: 12px; font-weight: 700; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+`;
+
+const SignalGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+`;
+
+const SignalCard = styled.article`
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  small { color: var(--muted); font-size: 11px; }
+  strong { color: var(--text); font-size: 13px; }
+  span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+`;
+
+const FilterTabs = styled.div`
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+`;
+
 function errorMessage(error: unknown): string {
   if (axios.isAxiosError<{ error?: string; message?: string }>(error)) {
     if (error.response?.status === 404) return 'O serviço de oportunidades ainda não está disponível no servidor.';
@@ -154,6 +221,34 @@ function formatDateTime(value?: string): string {
   if (!value) return '';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function signalFor(item: MarketOpportunityItem): { title: string; detail: string } {
+  if (item.rating === 'otimo') {
+    return { title: 'Cenário favorável para estudar', detail: 'Indicadores históricos estão relativamente favoráveis; avalie preço, risco e seus objetivos antes de decidir.' };
+  }
+  if (item.rating === 'bom') {
+    return { title: 'Acompanhar possível entrada', detail: 'O cenário está acima da faixa neutra, mas não confirma que este seja o melhor momento para comprar.' };
+  }
+  if (item.rating === 'atencao') {
+    return { title: 'Reavaliar riscos e exposição', detail: 'Os indicadores pedem cautela e revisão da tese; não significam que seja necessário vender agora.' };
+  }
+  if (item.rating === 'evitar') {
+    return { title: 'Alerta para revisar a posição', detail: 'A pontuação está fraca frente aos critérios analisados; compare fundamentos, custos e seu horizonte antes de qualquer saída.' };
+  }
+  return { title: 'Manter em observação', detail: 'Os indicadores estão em faixa neutra, sem sinal forte de entrada ou de saída.' };
+}
+
+function NewsCardItem({ article }: { article: MarketNewsArticle }) {
+  return (
+    <NewsCard>
+      <small>{article.categories.map(category => categoryLabels[category]).join(' · ')} · {article.source}</small>
+      <h3>{article.title}</h3>
+      {article.summary && <p>{article.summary}</p>}
+      <small>{article.published_at ? formatDateTime(article.published_at) : 'Data não informada'}</small>
+      <a href={article.url} target="_blank" rel="noreferrer">Ler notícia na fonte ↗</a>
+    </NewsCard>
+  );
 }
 
 function OpportunityCard({ item }: { item: MarketOpportunityItem }) {
@@ -216,9 +311,14 @@ export default function OpportunitiesPage() {
   const [tab, setTab] = useState<Tab>('oportunidades');
   const [profile, setProfile] = useState<MarketRiskProfile>('moderado');
   const [data, setData] = useState<MarketOpportunities>();
+  const [news, setNews] = useState<MarketNewsResponse>();
   const [loading, setLoading] = useState(true);
+  const [loadingNews, setLoadingNews] = useState(true);
   const [error, setError] = useState('');
+  const [newsError, setNewsError] = useState('');
+  const [newsFilter, setNewsFilter] = useState<NewsFilter>('todas');
   const [version, setVersion] = useState(0);
+  const [newsVersion, setNewsVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -231,9 +331,36 @@ export default function OpportunitiesPage() {
     return () => { active = false; };
   }, [profile, version]);
 
+  useEffect(() => {
+    let active = true;
+    setLoadingNews(true);
+    setNewsError('');
+    getInvestmentNews(newsVersion > 0)
+      .then(result => { if (active) setNews(result); })
+      .catch(loadError => { if (active) setNewsError(errorMessage(loadError)); })
+      .finally(() => { if (active) setLoadingNews(false); });
+    return () => { active = false; };
+  }, [newsVersion]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setVersion(current => current + 1);
+      setNewsVersion(current => current + 1);
+    }, 15 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const updatedAt = formatDateTime(data?.generated_at);
+  const newsUpdatedAt = formatDateTime(news?.generated_at);
   const isEmpty = data && !data.classes.length && !data.assets.length;
   const classLabels = new Map((data?.classes ?? []).map(item => [item.id, item.label]));
+  const visibleArticles = (news?.articles ?? []).filter(article =>
+    newsFilter === 'todas' || article.categories.includes(newsFilter)
+  );
+  const signals = [...new Map(
+    [...(data?.classes ?? []), ...(data?.assets.slice(0, 5) ?? []), ...(data?.portfolio ?? [])]
+      .map(item => [item.ticker ? `ticker:${item.ticker}` : `class:${item.id}`, item] as const)
+  ).values()].sort((a, b) => b.score - a.score);
 
   return (
     <Page>
@@ -246,6 +373,7 @@ export default function OpportunitiesPage() {
         </div>
         <Tabs role="tablist" aria-label="Seções">
           <TabButton type="button" role="tab" aria-selected={tab === 'oportunidades'} $active={tab === 'oportunidades'} onClick={() => setTab('oportunidades')}>Oportunidades</TabButton>
+          <TabButton type="button" role="tab" aria-selected={tab === 'noticias'} $active={tab === 'noticias'} onClick={() => setTab('noticias')}><Newspaper size={15} /> Notícias e sinais</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'carteira'} $active={tab === 'carteira'} onClick={() => setTab('carteira')}>Minha carteira</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'simulacao'} $active={tab === 'simulacao'} onClick={() => setTab('simulacao')}>Simulação histórica</TabButton>
           <TabButton type="button" role="tab" aria-selected={tab === 'fiis'} $active={tab === 'fiis'} onClick={() => setTab('fiis')}>Comparar FIIs</TabButton>
@@ -255,6 +383,101 @@ export default function OpportunitiesPage() {
       {tab === 'carteira' && <PortfolioSection />}
       {tab === 'simulacao' && <BacktestSection />}
       {tab === 'fiis' && <FiisSection />}
+
+      {tab === 'noticias' && (
+        <>
+          <Toolbar>
+            <Description>
+              Varredura automática de notícias financeiras públicas, renovada a cada 15 minutos enquanto a API estiver disponível.
+              {newsUpdatedAt && <> Última busca: {newsUpdatedAt}.</>}
+            </Description>
+            <Button type="button" onClick={() => setNewsVersion(current => current + 1)} disabled={loadingNews}>
+              <RefreshCw />{loadingNews ? 'Buscando...' : 'Atualizar notícias'}
+            </Button>
+          </Toolbar>
+
+          <Section>
+            <div>
+              <PanelTitle><TrendingUp size={18} /> Indicadores e sinais de acompanhamento</PanelTitle>
+              <Description>
+                Sinais derivados das notas de mercado e do perfil selecionado. Eles ajudam a priorizar o que pesquisar; não identificam um horário certo para comprar ou vender.
+              </Description>
+            </div>
+            <Field htmlFor="news-profile">Perfil usado na análise
+              <select id="news-profile" value={profile} onChange={event => setProfile(event.target.value as MarketRiskProfile)}>
+                {profiles.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+            </Field>
+            {data?.classes.length ? (
+              <>
+                <ColumnChart
+                  ariaLabel="Notas atuais de cenário por classe de investimento, de zero a cem"
+                  items={data.classes.map(item => ({
+                    id: item.id,
+                    label: item.label,
+                    value: item.score,
+                    color: classColors[item.id],
+                  }))}
+                  formatValue={value => `${Math.round(value)}/100`}
+                />
+                <SignalGrid>
+                  {signals.map(item => {
+                    const signal = signalFor(item);
+                    return (
+                      <SignalCard key={`signal-${item.id}`}>
+                        <small>{item.ticker ? `${item.label} · ${item.ticker}` : item.label}</small>
+                        <strong>{signal.title} · Nota {Math.round(item.score)}/100</strong>
+                        <span>{signal.detail}</span>
+                      </SignalCard>
+                    );
+                  })}
+                </SignalGrid>
+              </>
+            ) : loading ? (
+              <Description role="status">Calculando indicadores de mercado...</Description>
+            ) : (
+              <Description>Os indicadores estão indisponíveis. Atualize para tentar novamente.</Description>
+            )}
+            {data?.warnings.map(warning => <Description role="status" key={warning}>{warning}</Description>)}
+            <Disclaimer>
+              As notas refletem dados históricos e critérios quantitativos, não uma previsão. Rentabilidade passada não garante retorno futuro. Avalie diversificação, liquidez, custos, impostos e seu perfil; não opere apenas com base em manchetes ou sinais automáticos.
+            </Disclaimer>
+          </Section>
+
+          <Section>
+            <div>
+              <PanelTitle><Newspaper size={18} /> Notícias do mercado</PanelTitle>
+              <Description>Fontes agregadas pelo Google Notícias. Abra cada matéria para conferir o conteúdo completo e o contexto original.</Description>
+            </div>
+            <FilterTabs aria-label="Filtrar notícias por tipo de investimento">
+              {newsCategories.map(category => (
+                <TabButton
+                  key={category.id}
+                  type="button"
+                  $active={newsFilter === category.id}
+                  aria-pressed={newsFilter === category.id}
+                  onClick={() => setNewsFilter(category.id)}
+                >
+                  {category.label}
+                </TabButton>
+              ))}
+            </FilterTabs>
+            {newsError && <Description role="alert" style={{ color: 'var(--error)' }}>{newsError}</Description>}
+            {news?.warnings.map(warning => <Description role="status" key={warning}>{warning}</Description>)}
+            {loadingNews && !news ? (
+              <EmptyState><LoaderCircle /><p>Buscando notícias financeiras...</p></EmptyState>
+            ) : visibleArticles.length ? (
+              <NewsGrid>{visibleArticles.map(article => <NewsCardItem key={article.id} article={article} />)}</NewsGrid>
+            ) : (
+              <EmptyState><Newspaper /><p>Nenhuma notícia disponível neste filtro.</p></EmptyState>
+            )}
+            <Disclaimer>
+              Notícias são informações de terceiros e podem estar incompletas, atrasadas ou conter opiniões. A página não faz recomendação personalizada nem promete momento ideal de compra ou venda.
+              {news?.source && <> Fonte agregadora: {news.source}.</>}
+            </Disclaimer>
+          </Section>
+        </>
+      )}
 
       {tab === 'oportunidades' && (
         <>

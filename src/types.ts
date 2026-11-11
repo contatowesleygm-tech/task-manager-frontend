@@ -696,6 +696,26 @@ export interface MarketOpportunities {
   suggested_allocation: Array<{ id: string; percent: number }>;
 }
 
+export type MarketNewsCategory = 'acoes_br' | 'fiis' | 'renda_fixa' | 'internacional' | 'cripto';
+
+export interface MarketNewsArticle {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  source: string;
+  published_at: string | null;
+  categories: MarketNewsCategory[];
+}
+
+export interface MarketNewsResponse {
+  generated_at: string;
+  articles: MarketNewsArticle[];
+  warnings: string[];
+  source: string;
+  refresh_interval_minutes: number;
+}
+
 export interface BacktestYear {
   year: number;
   partial: boolean;
