@@ -7,7 +7,7 @@ import type {
   AssistantMessage, AuthCredentials, AuthUser, PaginatedStudyResources, RegisterResult, StudyResource, StudyResourceArea, StudyResourcePayload,
   SubscriptionPayment, SubscriptionPlansResponse, UserSubscription,
   FinanceAccount, FinanceAccountPayload, FinanceAccountUpdatePayload, FinanceSummary, FinanceCurrency, FinanceAsset, FinanceAssetPayload, FinanceLiability, FinanceLiabilityPayload, ActivityEvent, ActivitySummary, PaginatedActivity,
-  DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, FixedIncomeHistory, PaginatedDividendHoldings,
+  DividendAssetType, DividendAssetTypeOption, DividendCdiRate, DividendFilters, DividendHolding, DividendHoldingPayload, DividendLookup, DividendPortfolio, DividendPriceRefreshResult, DividendProjection, FixedIncomeHistory, PaginatedDividendHoldings,
   Expense, ExpenseCategory, ExpenseFilters, ExpensePayload, ExpenseSummary, FuelCalculatorPayload,
   FuelCalculatorResult, PaginatedExpenses, DailyRouteDayPayload, SavedDailyRouteDay, PaginatedDailyRouteDays,
   MarketOpportunities, MarketOpportunityItem, MarketRiskProfile, OpportunityRating, MarketNewsResponse,
@@ -317,6 +317,15 @@ export async function deleteExpense(id: TaskId): Promise<void> {
 export async function getDividendTypes(): Promise<DividendAssetTypeOption[]> {
   const response = await api.get<{ data: DividendAssetTypeOption[] }>('/dividends/types');
   return response.data.data;
+}
+
+export async function getDividendLookup(ticker: string, assetType: DividendAssetType): Promise<DividendLookup> {
+  const response = await api.get<{ data: DividendLookup } | DividendLookup>(
+    `/dividends/lookup/${encodeURIComponent(ticker)}`,
+    { params: { asset_type: assetType } },
+  );
+  const body = response.data;
+  return 'data' in body && body.data ? body.data : body as DividendLookup;
 }
 
 export async function getDividendHoldings(filters: DividendFilters = {}): Promise<PaginatedDividendHoldings> {

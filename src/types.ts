@@ -543,6 +543,12 @@ export interface DividendPriceRefreshResult {
   results: { holding_id: TaskId; ticker: string; updated: boolean; current_price?: number; error?: string }[];
 }
 
+export interface DividendLookup {
+  ticker: string;
+  current_price: number;
+  dividend_per_share: number | null;
+}
+
 export interface DividendPortfolioGroup {
   key: string;
   label: string;

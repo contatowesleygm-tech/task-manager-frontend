@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { Check, ChevronRight, Eye, EyeOff, LoaderCircle, Pencil, Pause, PiggyBank, Play, Plus, RefreshCw, Trash2, TrendingUp, X } from 'lucide-react';
 import styled from 'styled-components';
@@ -8,7 +8,7 @@ import MarketAnalysisTag from '../components/MarketAnalysisTag';
 import { maskMoney, moneyFromNumber, parseMoney } from '../utils/format';
 import {
   analyzeFiiPortfolio, createDividendHolding, deleteDividendHolding, getDividendHoldings, getDividendPortfolio,
-  getDividendCdiRate, getDividendProjection, getDividendTypes, getFixedIncomeHistory, getMarketOpportunities,
+  getDividendCdiRate, getDividendLookup, getDividendProjection, getDividendTypes, getFixedIncomeHistory, getMarketOpportunities,
   refreshDividendPrices, updateDividendHolding,
 } from '../api';
 import type {
@@ -470,6 +470,13 @@ const Hint = styled.p`
   font-size: 12px;
 `;
 
+const LookupStatus = styled.p<{ $error?: boolean }>`
+  grid-column: 1 / -1;
+  margin: -5px 0 12px;
+  color: ${({ $error }) => $error ? 'var(--error)' : 'var(--muted)'};
+  font-size: 12px;
+`;
+
 const MonthRow = styled.button`
   display: grid;
   width: 100%;
@@ -916,8 +923,15 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const [filters, setFilters] = useState<DividendFilters>(() => ({ ...(assetType ? { asset_type: assetType } : {}), page: 1, limit: 20 }));
   const [draft, setDraft] = useState({ asset_type: assetType ?? '', fii_segment: '', active: '', search: '' });
   const [form, setForm] = useState<FormState>(() => emptyForm(fallbackTypes));
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupMessage, setLookupMessage] = useState('');
+  const [lookupError, setLookupError] = useState(false);
   const [editing, setEditing] = useState<DividendHolding | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const lookupRequestRef = useRef(0);
+  const lookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLookupKeyRef = useRef('');
+  const autoLookupValuesRef = useRef({ current_price: '', dividend_per_share: '' });
   const [pendingDelete, setPendingDelete] = useState<DividendHolding | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<string>>(() => new Set());
   const [bulkChanging, setBulkChanging] = useState(false);
@@ -945,7 +959,17 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
-  const closeForm = useCallback(() => setFormOpen(false), []);
+  const cancelLookup = useCallback(() => {
+    lookupRequestRef.current += 1;
+    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    lookupTimerRef.current = null;
+    setLookupLoading(false);
+  }, []);
+
+  const closeForm = useCallback(() => {
+    cancelLookup();
+    setFormOpen(false);
+  }, [cancelLookup]);
 
   const typeById = useMemo(
     () => new Map(assetTypes.map(type => [type.id, type])),
@@ -956,6 +980,11 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   const showSegmentField = Boolean(selectedType?.uses_fii_segment);
   const needsReference = form.frequency !== 'mensal';
   const displayMoney = (value: number | string | undefined) => valuesHidden ? '••••••' : money(value);
+
+  useEffect(() => () => {
+    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    lookupRequestRef.current += 1;
+  }, []);
 
   function toggleValuesVisibility() {
     setValuesHidden(current => !current);
@@ -1128,25 +1157,137 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
   }, [isFixedIncome, refreshVersion]);
 
   function openCreate() {
+    cancelLookup();
+    lastLookupKeyRef.current = '';
+    autoLookupValuesRef.current = { current_price: '', dividend_per_share: '' };
+    setLookupMessage('');
+    setLookupError(false);
     setEditing(null);
     setForm(emptyForm(assetTypes, assetType));
     setFormOpen(true);
   }
 
   function openEdit(holding: DividendHolding) {
+    cancelLookup();
+    lastLookupKeyRef.current = '';
+    autoLookupValuesRef.current = { current_price: '', dividend_per_share: '' };
+    setLookupMessage('');
+    setLookupError(false);
     setEditing(holding);
     setForm(formFrom(holding));
     setFormOpen(true);
   }
 
+  async function lookupTicker(tickerValue: string, assetTypeValue: DividendAssetType) {
+    const ticker = tickerValue.trim().toUpperCase();
+    if (!ticker || !typeById.get(assetTypeValue)?.auto_quote) return;
+
+    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+    lookupTimerRef.current = null;
+    const lookupKey = `${assetTypeValue}:${ticker}`;
+    if (lastLookupKeyRef.current === lookupKey) return;
+
+    const requestId = ++lookupRequestRef.current;
+    setLookupLoading(true);
+    setLookupError(false);
+    setLookupMessage('Buscando preço e último provento...');
+    try {
+      const lookup = await getDividendLookup(ticker, assetTypeValue);
+      if (requestId !== lookupRequestRef.current) return;
+
+      const currentPrice = Number(lookup.current_price);
+      const dividendPerShare = lookup.dividend_per_share == null ? null : Number(lookup.dividend_per_share);
+      if (!Number.isFinite(currentPrice) || currentPrice < 0) {
+        throw new Error('A consulta não retornou um preço atual válido.');
+      }
+      if (dividendPerShare !== null && (!Number.isFinite(dividendPerShare) || dividendPerShare < 0)) {
+        throw new Error('A consulta não retornou um provento por cota válido.');
+      }
+
+      let priceFilled = false;
+      let dividendFilled = false;
+      setForm(current => {
+        if (current.ticker.trim().toUpperCase() !== ticker || current.asset_type !== assetTypeValue) return current;
+
+        const priceCanBeUpdated = !current.current_price
+          || current.current_price === autoLookupValuesRef.current.current_price;
+        const dividendCanBeUpdated = !current.dividend_per_share
+          || current.dividend_per_share === autoLookupValuesRef.current.dividend_per_share;
+        const nextPrice = priceCanBeUpdated ? moneyFromNumber(currentPrice) : current.current_price;
+        const nextDividend = dividendCanBeUpdated && dividendPerShare !== null
+          ? moneyFromNumber(dividendPerShare)
+          : current.dividend_per_share;
+
+        if (priceCanBeUpdated) {
+          autoLookupValuesRef.current.current_price = nextPrice;
+          priceFilled = true;
+        }
+        if (dividendCanBeUpdated && dividendPerShare !== null) {
+          autoLookupValuesRef.current.dividend_per_share = nextDividend;
+          dividendFilled = true;
+        }
+        return { ...current, current_price: nextPrice, dividend_per_share: nextDividend };
+      });
+
+      lastLookupKeyRef.current = lookupKey;
+      setLookupMessage([
+        priceFilled ? 'Preço atual preenchido' : 'Preço atual manual mantido',
+        dividendFilled
+          ? 'último provento preenchido'
+          : dividendPerShare === null
+            ? 'não há provento recente disponível'
+            : 'provento manual mantido',
+      ].join('; ') + '.');
+    } catch (lookupError) {
+      if (requestId === lookupRequestRef.current) {
+        setLookupMessage(getErrorMessage(lookupError, 'Não foi possível consultar os dados deste ticker.'));
+        setLookupError(true);
+      }
+    } finally {
+      if (requestId === lookupRequestRef.current) setLookupLoading(false);
+    }
+  }
+
+  function changeTicker(value: string) {
+    cancelLookup();
+    lastLookupKeyRef.current = '';
+    autoLookupValuesRef.current = { current_price: '', dividend_per_share: '' };
+    setLookupMessage('');
+    setLookupError(false);
+    const ticker = value.toUpperCase();
+    setForm(current => ({ ...current, ticker, current_price: '', dividend_per_share: '' }));
+
+    if (ticker.trim() && selectedType?.auto_quote) {
+      lookupTimerRef.current = setTimeout(() => {
+        lookupTimerRef.current = null;
+        void lookupTicker(ticker, form.asset_type);
+      }, 500);
+    }
+  }
+
+  function changeLookupValue(field: 'current_price' | 'dividend_per_share', value: string) {
+    autoLookupValuesRef.current[field] = '';
+    lastLookupKeyRef.current = '';
+    setLookupError(false);
+    setForm(current => ({ ...current, [field]: maskMoney(value) }));
+  }
+
   function changeAssetType(nextType: DividendAssetType) {
     const option = typeById.get(nextType);
+    cancelLookup();
+    lastLookupKeyRef.current = '';
+    autoLookupValuesRef.current = { current_price: '', dividend_per_share: '' };
+    setLookupMessage('');
+    setLookupError(false);
     setForm(current => ({
       ...current,
       asset_type: nextType,
+      current_price: '',
+      dividend_per_share: '',
       frequency: option?.default_frequency ?? current.frequency,
       fii_segment: option?.uses_fii_segment ? current.fii_segment : '',
     }));
+    if (form.ticker.trim() && option?.auto_quote) void lookupTicker(form.ticker, nextType);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1862,8 +2003,21 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
               : 'Informe o preço atual manualmente quando quiser acompanhar o valor da posição.'}
           </Hint>
           <Field htmlFor="div-ticker">Ticker *
-            <input id="div-ticker" maxLength={40} value={form.ticker} onChange={event => setForm(current => ({ ...current, ticker: event.target.value.toUpperCase() }))} placeholder="Ex.: MXRF11" required />
+            <input
+              id="div-ticker"
+              maxLength={40}
+              value={form.ticker}
+              onChange={event => changeTicker(event.target.value)}
+              onBlur={() => { void lookupTicker(form.ticker, form.asset_type); }}
+              placeholder="Ex.: MXRF11"
+              required
+            />
           </Field>
+          {(lookupLoading || lookupMessage) && (
+            <LookupStatus role="status" aria-live="polite" $error={lookupError}>
+              {lookupLoading ? 'Buscando preço e último provento...' : lookupMessage}
+            </LookupStatus>
+          )}
           <Field htmlFor="div-name">Nome
             <input id="div-name" maxLength={160} value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder="Ex.: Maxi Renda" />
           </Field>
@@ -1909,10 +2063,10 @@ export default function DividendsPage({ assetType }: DividendsPageProps) {
             <input id="div-average" type="text" inputMode="numeric" autoComplete="off" value={form.average_price} onChange={event => setForm(current => ({ ...current, average_price: maskMoney(event.target.value) }))} placeholder="R$ 9,80" />
           </Field>
           <Field htmlFor="div-current">Preço atual (R$)
-            <input id="div-current" type="text" inputMode="numeric" autoComplete="off" value={form.current_price} onChange={event => setForm(current => ({ ...current, current_price: maskMoney(event.target.value) }))} placeholder={selectedType?.auto_quote ? 'Vazio = cotação automática' : 'Opcional'} />
+            <input id="div-current" type="text" inputMode="numeric" autoComplete="off" value={form.current_price} onChange={event => changeLookupValue('current_price', event.target.value)} placeholder={selectedType?.auto_quote ? 'Vazio = cotação automática' : 'Opcional'} />
           </Field>
           <Field htmlFor="div-per-share">Provento por cota (R$)
-            <input id="div-per-share" type="text" inputMode="numeric" autoComplete="off" value={form.dividend_per_share} onChange={event => setForm(current => ({ ...current, dividend_per_share: maskMoney(event.target.value) }))} placeholder="R$ 0,10" />
+            <input id="div-per-share" type="text" inputMode="numeric" autoComplete="off" value={form.dividend_per_share} onChange={event => changeLookupValue('dividend_per_share', event.target.value)} placeholder="R$ 0,10" />
           </Field>
           <Field htmlFor="div-frequency">Frequência
             <select id="div-frequency" value={form.frequency} onChange={event => setForm(current => ({ ...current, frequency: event.target.value as DividendFrequency }))}>

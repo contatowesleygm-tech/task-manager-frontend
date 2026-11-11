@@ -72,7 +72,7 @@ filtro “Sem prioridade”.
 - `/api/english-study/goal` — consulta e atualiza a meta diária em minutos.
 - `/api/english-study/summary` — apresenta os minutos de hoje e o histórico diário do período.
 - `/api/expenses` — cria, lista, atualiza e remove despesas (`compra` ou `fixa`); também `/categories` e `/summary?month=YYYY-MM`.
-- `/api/dividends` — cadastra ativos (cotas × provento por cota) e `/projection?from=YYYY-MM&months=N` projeta o recebimento mensal estimado; para renda fixa, informe `cdi_rate` e use `applied_amount`, `cdi_percent` e `investment_date`.
+- `/api/dividends` — cadastra ativos (cotas × provento por cota), `/lookup/:ticker?asset_type=fii` consulta preço atual e último provento por cota para preencher o cadastro, e `/projection?from=YYYY-MM&months=N` projeta o recebimento mensal estimado; para renda fixa, informe `cdi_rate` e use `applied_amount`, `cdi_percent` e `investment_date`.
 - `/api/study-resources` — materiais continuam separados das sessões; use a área `Inglês` e informe `material_url` para relacionar um material à sessão.
 
 O acompanhamento das telas Hoje, Semana e Mês usa os registros da rota diária.
