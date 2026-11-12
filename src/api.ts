@@ -488,10 +488,10 @@ export async function getDividendCdiRate(): Promise<DividendCdiRate> {
   return response.data.data;
 }
 
-export async function getFixedIncomeHistory(id: TaskId): Promise<FixedIncomeHistory> {
+export async function getFixedIncomeHistory(id: TaskId, cdiRate?: number): Promise<FixedIncomeHistory> {
   const response = await api.get<{ data: FixedIncomeHistory }>(
     `/dividends/${encodeURIComponent(String(id))}/fixed-income-history`,
-    { timeout: 20000 }
+    { params: { cdi_rate: cdiRate }, timeout: 20000 }
   );
   return response.data.data;
 }

@@ -462,6 +462,7 @@ export type DividendAssetType =
   | 'fii' | 'fiagro' | 'acao' | 'bdr' | 'etf' | 'fundo' | 'tesouro' | 'cdb' | 'lci_lca'
   | 'debenture' | 'previdencia' | 'cripto' | 'acao_us' | 'renda_fixa' | 'outro';
 export type DividendFrequency = 'mensal' | 'trimestral' | 'semestral' | 'anual';
+export type FixedIncomeRateType = 'cdi' | 'prefixado';
 export type FiiSegment = 'papel' | 'tijolo' | 'hibrido';
 export type DividendQuoteMarket = 'b3' | 'us' | 'crypto' | string | null;
 
@@ -482,8 +483,11 @@ export interface DividendHolding {
   fii_segment: FiiSegment | null;
   quantity: number | string;
   applied_amount?: number | string | null;
+  rate_type?: FixedIncomeRateType;
   cdi_percent?: number | string | null;
+  fixed_rate_percent?: number | string | null;
   investment_date?: string | null;
+  maturity_date?: string | null;
   income_tax_exempt?: boolean;
   dividend_per_share?: number | string | null;
   frequency: DividendFrequency;
@@ -507,8 +511,11 @@ export interface DividendHoldingPayload {
   quantity?: number;
   asset_type?: DividendAssetType;
   applied_amount?: number;
+  rate_type?: FixedIncomeRateType;
   cdi_percent?: number;
+  fixed_rate_percent?: number;
   investment_date?: string;
+  maturity_date?: string | null;
   income_tax_exempt?: boolean;
   name?: string | null;
   fii_segment?: FiiSegment | null;
@@ -575,8 +582,11 @@ export interface DividendProjectionItem {
   name: string | null;
   asset_type: DividendAssetType;
   quantity?: number | string;
-  cdi_percent?: number | string;
+  cdi_percent?: number | string | null;
+  rate_type?: FixedIncomeRateType;
+  fixed_rate_percent?: number | string | null;
   investment_date?: string;
+  maturity_date?: string | null;
   dividend_per_share?: number | string | null;
   amount: number | string;
   gross_amount?: number | string;
@@ -643,12 +653,15 @@ export interface FixedIncomeHistoryYear {
 
 export interface FixedIncomeHistory {
   investment_date: string;
+  maturity_date?: string | null;
   as_of_date: string;
-  cdi_reference_date: string;
+  cdi_reference_date?: string;
   applied_amount: number;
-  cdi_percent: number;
+  rate_type?: FixedIncomeRateType;
+  cdi_percent?: number | null;
+  fixed_rate_percent?: number | null;
   income_tax_exempt: boolean;
-  cdi_source: string;
+  cdi_source?: string;
   current: {
     gross_balance: number;
     accumulated_gain: number;
@@ -656,6 +669,17 @@ export interface FixedIncomeHistory {
     estimated_tax: number;
     net_balance: number;
   };
+  maturity_estimate?: {
+    date: string;
+    days_held: number;
+    gross_balance: number;
+    accumulated_gain: number;
+    income_tax_rate: number;
+    estimated_tax: number;
+    net_balance: number;
+    is_projected: boolean;
+    projection_assumption: string;
+  } | null;
   months: FixedIncomeHistoryMonth[];
   years: FixedIncomeHistoryYear[];
 }

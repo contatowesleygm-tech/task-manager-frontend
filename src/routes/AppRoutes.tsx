@@ -28,6 +28,7 @@ import FuelCalculatorPage from '../pages/FuelCalculatorPage';
 import DailyRoutesPage from '../pages/DailyRoutesPage';
 import DividendsPage from '../pages/DividendsPage';
 import OpportunitiesPage from '../pages/OpportunitiesPage';
+import PortfolioAnalysisPage from '../pages/PortfolioAnalysisPage';
 import TaskDetailsPage from '../pages/TaskDetailsPage';
 import TasksPage from '../pages/TasksPage';
 import TodayPage from '../pages/TodayPage';
@@ -1243,6 +1244,9 @@ export default function AppRoutes() {
       break;
     case 'fixed-income':
       content = <DividendsPage key="fixed-income" assetType="renda_fixa" />;
+      break;
+    case 'portfolio-analysis':
+      content = <PortfolioAnalysisPage />;
       break;
     case 'opportunities':
       content = <OpportunitiesPage />;

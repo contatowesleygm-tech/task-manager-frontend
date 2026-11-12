@@ -5,11 +5,14 @@ import { Button, EmptyState, Field, PanelTitle } from './ui';
 import MarketAnalysisTag from './MarketAnalysisTag';
 import { Description, FormGrid, Note, RatingBadge, Section, Stat, Stats, TableWrap, Wrap } from './marketUi';
 import { DivergingBars, StackedBar, ValueBars } from './charts';
-import { analyzeFiiPortfolio, ratingFromScore, simulatePortfolioSwitch } from '../api';
+import { analyzeFiiPortfolio, getDividendHoldings, getMarketOpportunities, ratingFromScore, simulatePortfolioSwitch } from '../api';
 import { formatBRL, formatPercent } from '../utils/format';
 import { apiErrorMessage } from '../utils/errors';
 import { qualityTagMeta, ratingMeta } from '../utils/rating';
-import type { MarketRiskProfile, PortfolioAnalysis, PortfolioParams, PortfolioPosition, PortfolioRecommendation, SwitchSimulation } from '../types';
+import type {
+  DividendAssetType, DividendHolding, MarketOpportunityItem, MarketRiskProfile,
+  PortfolioAnalysis, PortfolioParams, PortfolioPosition, PortfolioRecommendation, SwitchSimulation,
+} from '../types';
 
 const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
   { id: 'conservador', label: 'Conservador' },
@@ -18,9 +21,9 @@ const profiles: Array<{ id: MarketRiskProfile; label: string }> = [
 ];
 
 const recommendationMeta: Record<PortfolioRecommendation, { label: string; color: string }> = {
-  vender: { label: 'Vender', color: 'var(--error)' },
-  reduzir: { label: 'Reduzir 50%', color: 'var(--warning)' },
-  manter: { label: 'Manter', color: 'var(--success)' },
+  vender: { label: 'Avaliar venda', color: 'var(--error)' },
+  reduzir: { label: 'Avaliar redução', color: 'var(--warning)' },
+  manter: { label: 'Manter / acompanhar', color: 'var(--success)' },
   sem_dados: { label: 'Sem dados', color: 'var(--muted)' },
 };
 
@@ -34,6 +37,13 @@ const allocationMeta: Record<string, { label: string; color: string }> = {
 const productNames: Record<string, string> = { cdb: 'CDB', lci_lca: 'LCI/LCA', tesouro_selic: 'Tesouro Selic' };
 
 const decimal = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const equityAssetTypes = new Set<DividendAssetType>(['acao', 'bdr', 'etf', 'acao_us']);
+const equityPaymentsPerYear: Record<DividendHolding['frequency'], number> = {
+  mensal: 12,
+  trimestral: 4,
+  semestral: 2,
+  anual: 1,
+};
 
 const Grid = styled.div`
   display: grid;
@@ -83,6 +93,76 @@ function errorMessage(error: unknown): string {
 function horizonLabel(months: number): string {
   if (months % 12 === 0) return months === 12 ? '1 ano' : `${months / 12} anos`;
   return `${months} meses`;
+}
+
+async function loadEquityHoldings(): Promise<DividendHolding[]> {
+  const firstPage = await getDividendHoldings({ active: true, page: 1, limit: 100 });
+  const holdings = [...firstPage.data];
+  for (let page = 2; page <= firstPage.pagination.totalPages; page += 1) {
+    const result = await getDividendHoldings({ active: true, page, limit: 100 });
+    holdings.push(...result.data);
+  }
+  return holdings.filter(holding => equityAssetTypes.has(holding.asset_type));
+}
+
+function EquityPositionCard({
+  holding,
+  analysis,
+}: {
+  holding: DividendHolding;
+  analysis?: MarketOpportunityItem;
+}) {
+  const invested = Number(holding.invested_amount) || 0;
+  const currentValue = Number(holding.current_value) || 0;
+  const gain = Number(holding.profit_loss) || 0;
+  const yieldEstimate = currentValue > 0
+    ? Number(holding.dividend_per_share ?? 0) * (equityPaymentsPerYear[holding.frequency] ?? 4)
+      * (Number(holding.quantity) || 0) / currentValue * 100
+    : null;
+  const color = analysis ? ratingMeta[analysis.rating].color : 'var(--muted)';
+
+  return (
+    <Card $color={color}>
+      <header>
+        <div>
+          <h3>{holding.ticker} · {holding.asset_type.toUpperCase()}</h3>
+          {holding.name && <small>{holding.name}</small>}
+        </div>
+        <RatingBadge $color={color}>
+          {analysis ? `Mercado: ${ratingMeta[analysis.rating].label}` : 'Análise indisponível'}
+        </RatingBadge>
+      </header>
+      {analysis && (
+        <Meter $value={analysis.score} $color={color}>
+          <span>Nota de mercado {Math.round(analysis.score)}/100 · não é sinal de compra ou venda</span>
+          <div />
+        </Meter>
+      )}
+      <dl>
+        <div><dt>Valor na carteira</dt><dd>{formatBRL(currentValue)}</dd></div>
+        <div><dt>Valor investido</dt><dd>{formatBRL(invested)}</dd></div>
+        <div>
+          <dt>Variação cadastrada</dt>
+          <dd style={{ color: gain >= 0 ? 'var(--success)' : 'var(--error)' }}>
+            {gain > 0 ? '+' : ''}{formatBRL(gain)}
+          </dd>
+        </div>
+        <div>
+          <dt>Provento cadastrado anualizado</dt>
+          <dd>{yieldEstimate === null ? '—' : formatPercent(yieldEstimate)}</dd>
+        </div>
+      </dl>
+      {analysis?.analysis_factors && analysis.analysis_factors.length > 0 && (
+        <ul>{analysis.analysis_factors.map((factor, index) => <li key={`${holding.ticker}-factor-${index}`}>{factor}</li>)}</ul>
+      )}
+      {analysis?.reasons?.length ? (
+        <ul>{analysis.reasons.map((reason, index) => <li key={`${holding.ticker}-reason-${index}`}>{reason}</li>)}</ul>
+      ) : !analysis ? (
+        <small>Não foi possível obter dados de mercado confiáveis para este ticker. Confira a cotação e a tese antes de decidir.</small>
+      ) : null}
+      {holding.notes && <small>Observação: {holding.notes}</small>}
+    </Card>
+  );
 }
 
 function PositionCard({ position, bestRate }: { position: PortfolioPosition; bestRate: number }) {
@@ -168,6 +248,10 @@ export default function PortfolioSection() {
   const [simulation, setSimulation] = useState<SwitchSimulation>();
   const [simulating, setSimulating] = useState(false);
   const [simulationError, setSimulationError] = useState('');
+  const [equityHoldings, setEquityHoldings] = useState<DividendHolding[]>([]);
+  const [equityAnalysis, setEquityAnalysis] = useState<MarketOpportunityItem[]>([]);
+  const [equityLoading, setEquityLoading] = useState(true);
+  const [equityError, setEquityError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -181,6 +265,35 @@ export default function PortfolioSection() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [request]);
+
+  useEffect(() => {
+    let active = true;
+    setEquityLoading(true);
+    setEquityError('');
+    void Promise.allSettled([
+      loadEquityHoldings(),
+      getMarketOpportunities(request.perfil),
+    ]).then(([holdingsResult, marketResult]) => {
+      if (!active) return;
+      const failures: string[] = [];
+      if (holdingsResult.status === 'fulfilled') {
+        setEquityHoldings(holdingsResult.value);
+      } else {
+        setEquityHoldings([]);
+        failures.push('Não foi possível carregar suas ações cadastradas.');
+      }
+      if (marketResult.status === 'fulfilled') {
+        setEquityAnalysis(marketResult.value.portfolio.filter(item => item.class_id === 'acoes_br'));
+      } else {
+        setEquityAnalysis([]);
+        failures.push('A análise de mercado das ações está temporariamente indisponível.');
+      }
+      setEquityError(failures.join(' '));
+    }).finally(() => {
+      if (active) setEquityLoading(false);
+    });
+    return () => { active = false; };
+  }, [request.perfil]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -261,8 +374,13 @@ export default function PortfolioSection() {
     <Wrap>
       <Section>
         <div>
-          <PanelTitle><Wallet size={19} />Minha carteira de FIIs</PanelTitle>
-          <Description>Analisa os FIIs que você cadastrou em Dividendos e mostra o que faz sentido vender para migrar para a renda fixa. Informe uma meta de renda fixa para o plano vender até chegar nela.</Description>
+          <PanelTitle><Wallet size={19} />Análise de FIIs, ações e comparação com renda fixa</PanelTitle>
+          <Description>
+            A alocação considera sua carteira cadastrada; FIIs/Fiagros e ações são analisados em blocos separados.
+            A comparação com renda fixa e os cenários de venda abaixo são específicos para FIIs/Fiagros.
+            Ajuste perfil, prazo e taxas para comparar. Um mercado em queda não é, sozinho, sinal para vender: considere também
+            proventos, fundamentos, impostos, necessidade de liquidez e seus objetivos. Os sinais são quantitativos, não recomendações.
+          </Description>
         </div>
         <FormGrid onSubmit={submit} $columns={3}>
           <Field htmlFor="pf-perfil">Perfil de risco
@@ -297,7 +415,7 @@ export default function PortfolioSection() {
               <Stat>
                 <small>Valor da carteira</small>
                 <strong>{formatBRL(data.portfolio.total_value)}</strong>
-                <span>{data.portfolio.fiis_count} FIIs analisados</span>
+                <span>{data.portfolio.fiis_count} FIIs/Fiagros analisados · {equityHoldings.length} ações/BDRs/ETFs cadastrados</span>
               </Stat>
               <Stat $tone={(data.portfolio.fixed_income_gap_pct ?? 0) > 0 ? 'bad' : 'good'}>
                 <small>Renda fixa na carteira</small>
@@ -321,23 +439,52 @@ export default function PortfolioSection() {
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
             <div>
               <PanelTitle>Seus FIIs contra a renda fixa</PanelTitle>
-              <Description>Dividend yield dos últimos 12 meses de cada fundo comparado ao rendimento líquido da melhor renda fixa. Verde: manter. Amarelo: reduzir. Vermelho: vender.</Description>
+              <Description>Dividend yield dos últimos 12 meses de cada fundo comparado ao rendimento líquido da melhor renda fixa. As cores indicam sinais para avaliação, não ordens de venda.</Description>
             </div>
             <ValueBars items={yieldBars} />
           </Section>
 
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
             <div>
-              <PanelTitle>Recomendação por fundo</PanelTitle>
-              <Description>Ordenado do que tem mais motivos para sair ao que tem menos.</Description>
+              <PanelTitle>Sinais quantitativos por fundo</PanelTitle>
+              <Description>Ordenado pelo número de fatores que merecem avaliação; confirme os dados e seu horizonte antes de decidir.</Description>
             </div>
             <Grid>{data.positions.map(position => <PositionCard key={position.ticker} position={position} bestRate={bestRate} />)}</Grid>
           </Section>
 
+          <Section style={{ opacity: equityLoading ? 0.6 : 1 }}>
+            <div>
+              <PanelTitle>Ações, BDRs e ETFs da carteira</PanelTitle>
+              <Description>
+                A nota usa dados de mercado e histórico disponível; não avalia sozinha lucro, dívida, preço justo ou sua estratégia.
+                O provento anualizado é calculado a partir do valor por pagamento que você cadastrou e pode diferir do histórico real.
+              </Description>
+            </div>
+            {equityError && <Note role="status">{equityError}</Note>}
+            {equityLoading ? (
+              <EmptyState><LoaderCircle /><p>Carregando e avaliando ações da carteira...</p></EmptyState>
+            ) : equityHoldings.length ? (
+              <Grid>
+                {equityHoldings.map(holding => (
+                  <EquityPositionCard
+                    key={String(holding.id)}
+                    holding={holding}
+                    analysis={equityAnalysis.find(item => item.ticker?.toUpperCase() === holding.ticker.toUpperCase())}
+                  />
+                ))}
+              </Grid>
+            ) : (
+              <Note>Nenhuma ação, BDR ou ETF ativo encontrado em Dividendos.</Note>
+            )}
+          </Section>
+
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
             <div>
-              <PanelTitle>Plano de venda</PanelTitle>
-              <Description>{plan.message}{plan.mode === 'meta_renda_fixa' ? ' Fundos marcados como "mantido" só entram porque a meta exige.' : ''}</Description>
+              <PanelTitle>Cenário de venda simulado</PanelTitle>
+              <Description>
+                {plan.message} Este plano é apenas uma simulação e não altera sua carteira.
+                {plan.mode === 'meta_renda_fixa' ? ' Fundos marcados como "mantido" só entram porque a meta exige.' : ''}
+              </Description>
             </div>
             {plan.sales.length > 0 && (
               <>

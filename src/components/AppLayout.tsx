@@ -31,12 +31,13 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'daily-routes', label: 'Percursos do dia', path: '/daily-routes', page: 'daily-routes', icon: MapPinned },
   { id: 'dividends', label: 'Dividendos', path: '/dividends', page: 'dividends', icon: PiggyBank },
   { id: 'fixed-income', label: 'Renda fixa', path: '/fixed-income', page: 'fixed-income', icon: PiggyBank },
+  { id: 'portfolio-analysis', label: 'Análise da carteira', path: '/portfolio-analysis', page: 'portfolio-analysis', icon: Gauge },
   { id: 'opportunities', label: 'Mercado e notícias', path: '/opportunities', page: 'opportunities', icon: Gauge },
 ];
 
 const menuStorageKey = 'task-manager-menu-order';
 const sidebarCollapsedStorageKey = 'task-manager-sidebar-collapsed';
-const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends', 'fixed-income', 'opportunities']);
+const financeMenuItemIds = new Set(['finances', 'expenses', 'dividends', 'fixed-income', 'portfolio-analysis', 'opportunities']);
 
 const TopbarIntro = styled.span`
   color: var(--muted);
@@ -254,7 +255,7 @@ export default function AppLayout({
   const visibleFinanceItems = visibleMenuItems.filter(item => financeMenuItemIds.has(item.id));
   const sidebarMenuItems = menuItems.filter(item => {
     if (item.id === 'finances') return visibleFinanceItems.length > 0;
-    if (item.id === 'expenses' || item.id === 'dividends' || item.id === 'fixed-income' || item.id === 'opportunities') return false;
+    if (item.id === 'expenses' || item.id === 'dividends' || item.id === 'fixed-income' || item.id === 'portfolio-analysis' || item.id === 'opportunities') return false;
     return !archivedPageIds.includes(item.id);
   });
 

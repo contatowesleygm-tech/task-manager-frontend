@@ -30,8 +30,9 @@ A API está configurada em `http://localhost:3333/api`; por isso, a listagem cha
 - `/schedule` — agenda paginada de lembretes, atividades e aniversários.
 - `/english-study` — sessões de estudo de inglês, meta diária e progresso semanal.
 - `/expenses` — compras e despesas fixas mensais, com resumo do mês por categoria.
-- `/dividends` — ativos que pagam dividendos e projeção mensal estimada de proventos.
-- `/fixed-income` — investimentos de renda fixa, com valores da carteira e projeção mensal filtrados para essa modalidade.
+- `/dividends` — ativos de bolsa que pagam dividendos; lista, totais e projeção excluem renda fixa.
+- `/fixed-income` — investimentos de renda fixa, com valores da carteira e projeção mensal separados dos ativos de bolsa.
+- `/portfolio-analysis` — análise da alocação cadastrada, sinais de mercado das ações/BDRs/ETFs e comparação de FIIs/Fiagros com renda fixa; sinais são estimativas, não ordens de venda.
 
 As páginas são navegadas pelo histórico do navegador. Em produção, configure o servidor
 para redirecionar rotas da aplicação para `index.html`.
@@ -72,7 +73,7 @@ filtro “Sem prioridade”.
 - `/api/english-study/goal` — consulta e atualiza a meta diária em minutos.
 - `/api/english-study/summary` — apresenta os minutos de hoje e o histórico diário do período.
 - `/api/expenses` — cria, lista, atualiza e remove despesas (`compra` ou `fixa`); também `/categories` e `/summary?month=YYYY-MM`.
-- `/api/dividends` — cadastra ativos (cotas × provento por cota), `/lookup/:ticker?asset_type=fii` consulta preço atual e último provento por cota para preencher o cadastro, e `/projection?from=YYYY-MM&months=N` projeta o recebimento mensal estimado; para renda fixa, informe `cdi_rate` e use `applied_amount`, `cdi_percent` e `investment_date`.
+- `/api/dividends` — cadastra ativos (cotas × provento por cota), `/lookup/:ticker?asset_type=fii` consulta preço atual e último provento por cota para preencher o cadastro, e `/projection?from=YYYY-MM&months=N` projeta o recebimento mensal estimado; para renda fixa, use `applied_amount`, `investment_date`, `rate_type` (`cdi` com `cdi_percent` ou `prefixado` com `fixed_rate_percent`, em % ao ano) e, opcionalmente, `maturity_date`. O histórico detalha bruto, rendimento, IR e líquido estimados no vencimento; projeções futuras usam a taxa CDI da simulação ou a taxa prefixada.
 - `/api/study-resources` — materiais continuam separados das sessões; use a área `Inglês` e informe `material_url` para relacionar um material à sessão.
 
 O acompanhamento das telas Hoje, Semana e Mês usa os registros da rota diária.
