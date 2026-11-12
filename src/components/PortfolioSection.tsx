@@ -86,6 +86,19 @@ const Actions = styled.div`
   gap: 12px;
 `;
 
+const EquityAssessment = styled.div`
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  strong { font-size: 12px; }
+  span { color: var(--muted); }
+`;
+
 function errorMessage(error: unknown): string {
   return apiErrorMessage(error, 'Não foi possível analisar a carteira.', 'A análise de carteira ainda não está disponível no servidor.');
 }
@@ -95,6 +108,20 @@ function horizonLabel(months: number): string {
   return `${months} meses`;
 }
 
+function equityAssessment(rating: MarketOpportunityItem['rating']): string {
+  switch (rating) {
+    case 'otimo':
+    case 'bom':
+      return 'Indicadores de mercado favoráveis; manter e acompanhar é compatível com esta leitura.';
+    case 'neutro':
+      return 'Leitura neutra; acompanhe a tese e os próximos resultados, sem sinal suficiente isoladamente para manter ou vender.';
+    case 'atencao':
+      return 'Os indicadores merecem atenção; reavalie a tese, os riscos e o tamanho da posição antes de decidir.';
+    case 'evitar':
+      return 'Os indicadores do período estão desfavoráveis; revise a tese e os fundamentos da empresa antes de decidir.';
+  }
+}
+
 async function loadEquityHoldings(): Promise<DividendHolding[]> {
   const firstPage = await getDividendHoldings({ active: true, page: 1, limit: 100 });
   const holdings = [...firstPage.data];
@@ -102,7 +129,7 @@ async function loadEquityHoldings(): Promise<DividendHolding[]> {
     const result = await getDividendHoldings({ active: true, page, limit: 100 });
     holdings.push(...result.data);
   }
-  return holdings.filter(holding => equityAssetTypes.has(holding.asset_type));
+  return holdings.filter(holding => equityAssetTypes.has(holding.asset_type.toLowerCase() as DividendAssetType));
 }
 
 function EquityPositionCard({
@@ -134,10 +161,17 @@ function EquityPositionCard({
       </header>
       {analysis && (
         <Meter $value={analysis.score} $color={color}>
-          <span>Nota de mercado {Math.round(analysis.score)}/100 · não é sinal de compra ou venda</span>
+          <span>Nota quantitativa de mercado {Math.round(analysis.score)}/100</span>
           <div />
         </Meter>
       )}
+      <EquityAssessment>
+        <strong>{analysis ? equityAssessment(analysis.rating) : 'Sem dados suficientes para avaliar os indicadores de mercado deste ativo.'}</strong>
+        <span>
+          Saúde financeira: não avaliada. A análise disponível não fornece demonstrativos confiáveis de lucro,
+          endividamento, fluxo de caixa, ROE ou valuation.
+        </span>
+      </EquityAssessment>
       <dl>
         <div><dt>Valor na carteira</dt><dd>{formatBRL(currentValue)}</dd></div>
         <div><dt>Valor investido</dt><dd>{formatBRL(invested)}</dd></div>
@@ -152,14 +186,12 @@ function EquityPositionCard({
           <dd>{yieldEstimate === null ? '—' : formatPercent(yieldEstimate)}</dd>
         </div>
       </dl>
-      {analysis?.analysis_factors && analysis.analysis_factors.length > 0 && (
-        <ul>{analysis.analysis_factors.map((factor, index) => <li key={`${holding.ticker}-factor-${index}`}>{factor}</li>)}</ul>
-      )}
       {analysis?.reasons?.length ? (
-        <ul>{analysis.reasons.map((reason, index) => <li key={`${holding.ticker}-reason-${index}`}>{reason}</li>)}</ul>
-      ) : !analysis ? (
-        <small>Não foi possível obter dados de mercado confiáveis para este ticker. Confira a cotação e a tese antes de decidir.</small>
-      ) : null}
+        <>
+          <strong>Fatores e indicadores considerados</strong>
+          <ul>{analysis.reasons.map((reason, index) => <li key={`${holding.ticker}-reason-${index}`}>{reason}</li>)}</ul>
+        </>
+      ) : <small>Os fatores detalhados não foram retornados para este ticker. Confira a cotação e os dados da empresa antes de decidir.</small>}
       {holding.notes && <small>Observação: {holding.notes}</small>}
     </Card>
   );
@@ -250,7 +282,8 @@ export default function PortfolioSection() {
   const [simulationError, setSimulationError] = useState('');
   const [equityHoldings, setEquityHoldings] = useState<DividendHolding[]>([]);
   const [equityAnalysis, setEquityAnalysis] = useState<MarketOpportunityItem[]>([]);
-  const [equityLoading, setEquityLoading] = useState(true);
+  const [equityHoldingsLoading, setEquityHoldingsLoading] = useState(true);
+  const [equityAnalysisLoading, setEquityAnalysisLoading] = useState(true);
   const [equityError, setEquityError] = useState('');
 
   useEffect(() => {
@@ -268,30 +301,46 @@ export default function PortfolioSection() {
 
   useEffect(() => {
     let active = true;
-    setEquityLoading(true);
+    setEquityHoldingsLoading(true);
+    setEquityAnalysisLoading(true);
     setEquityError('');
-    void Promise.allSettled([
-      loadEquityHoldings(),
-      getMarketOpportunities(request.perfil),
-    ]).then(([holdingsResult, marketResult]) => {
-      if (!active) return;
-      const failures: string[] = [];
-      if (holdingsResult.status === 'fulfilled') {
-        setEquityHoldings(holdingsResult.value);
-      } else {
-        setEquityHoldings([]);
-        failures.push('Não foi possível carregar suas ações cadastradas.');
-      }
-      if (marketResult.status === 'fulfilled') {
-        setEquityAnalysis(marketResult.value.portfolio.filter(item => item.class_id === 'acoes_br'));
-      } else {
-        setEquityAnalysis([]);
-        failures.push('A análise de mercado das ações está temporariamente indisponível.');
-      }
-      setEquityError(failures.join(' '));
-    }).finally(() => {
-      if (active) setEquityLoading(false);
-    });
+    void loadEquityHoldings()
+      .then(holdings => {
+        if (active) setEquityHoldings(holdings);
+      })
+      .catch(() => {
+        if (active) {
+          setEquityHoldings([]);
+          setEquityError('Não foi possível carregar suas ações cadastradas.');
+        }
+      })
+      .finally(() => {
+        if (active) setEquityHoldingsLoading(false);
+      });
+    void getMarketOpportunities(request.perfil, true)
+      .then(marketResult => {
+        if (!active) return;
+        const equityTypes = new Set(['acoes_br', 'internacional']);
+        const byTicker = new Map<string, MarketOpportunityItem>();
+        [...marketResult.portfolio, ...marketResult.assets].forEach(item => {
+          if (item.ticker && equityTypes.has(item.class_id ?? '')) {
+            byTicker.set(item.ticker.toUpperCase(), item);
+          }
+        });
+        setEquityAnalysis([...byTicker.values()]);
+      })
+      .catch(() => {
+        if (active) {
+          setEquityAnalysis([]);
+          setEquityError(current => [
+            current,
+            'A análise de mercado das ações está temporariamente indisponível.',
+          ].filter(Boolean).join(' '));
+        }
+      })
+      .finally(() => {
+        if (active) setEquityAnalysisLoading(false);
+      });
     return () => { active = false; };
   }, [request.perfil]);
 
@@ -363,10 +412,6 @@ export default function PortfolioSection() {
     caption: `Bruto ${formatPercent(product.gross_annual_pct)} · IR ${formatPercent(product.income_tax_pct)} · ${product.note}`,
   })), [data]);
 
-  if (loading && !data && !error) {
-    return <EmptyState><LoaderCircle /><p>Analisando sua carteira (a primeira consulta pode levar cerca de 10 segundos)...</p></EmptyState>;
-  }
-
   const plan = data?.sell_plan;
   const totals = plan?.totals;
 
@@ -408,6 +453,49 @@ export default function PortfolioSection() {
         {error && <Note role="alert" style={{ color: 'var(--error)', fontSize: 12 }}>{error}</Note>}
       </Section>
 
+      <Section style={{ opacity: equityAnalysisLoading ? 0.6 : 1 }}>
+        <div>
+          <PanelTitle>
+            Sinais quantitativos por fundo e ações
+            {!equityHoldingsLoading && ` · ${equityHoldings.length} ações/BDRs/ETFs`}
+          </PanelTitle>
+          <Description>
+            FIIs e ações cadastradas aparecem juntos nesta análise. Os fatores de mercado são indicadores para acompanhamento,
+            não ordens de compra ou venda; saúde financeira fundamentalista das ações não é avaliada por esta fonte.
+          </Description>
+        </div>
+        {equityError && <Note role="status">{equityError}</Note>}
+        {data?.positions.length ? (
+          <>
+            <strong>FIIs e Fiagros</strong>
+            <Grid>{data.positions.map(position => <PositionCard key={position.ticker} position={position} bestRate={bestRate} />)}</Grid>
+          </>
+        ) : loading ? (
+          <Note role="status">Carregando sinais quantitativos dos FIIs...</Note>
+        ) : error ? (
+          <Note>Não foi possível carregar os sinais de FIIs; suas ações cadastradas continuam disponíveis abaixo.</Note>
+        ) : null}
+        <strong>Minhas ações, BDRs e ETFs</strong>
+        {equityHoldingsLoading ? (
+          <EmptyState><LoaderCircle /><p>Carregando suas ações cadastradas...</p></EmptyState>
+        ) : equityHoldings.length ? (
+          <Grid>
+            {equityHoldings.map(holding => (
+              <EquityPositionCard
+                key={String(holding.id)}
+                holding={holding}
+                analysis={equityAnalysis.find(item => item.ticker?.toUpperCase() === holding.ticker.toUpperCase())}
+              />
+            ))}
+          </Grid>
+        ) : (
+          <Note>Nenhuma ação, BDR ou ETF ativo encontrado em Dividendos.</Note>
+        )}
+        {equityAnalysisLoading && !equityHoldingsLoading && equityHoldings.length > 0 && (
+          <Note role="status">Buscando os indicadores de mercado dos seus ativos...</Note>
+        )}
+      </Section>
+
       {data && plan && totals && (
         <>
           <Section style={{ opacity: loading ? 0.6 : 1 }}>
@@ -442,40 +530,6 @@ export default function PortfolioSection() {
               <Description>Dividend yield dos últimos 12 meses de cada fundo comparado ao rendimento líquido da melhor renda fixa. As cores indicam sinais para avaliação, não ordens de venda.</Description>
             </div>
             <ValueBars items={yieldBars} />
-          </Section>
-
-          <Section style={{ opacity: loading ? 0.6 : 1 }}>
-            <div>
-              <PanelTitle>Sinais quantitativos por fundo</PanelTitle>
-              <Description>Ordenado pelo número de fatores que merecem avaliação; confirme os dados e seu horizonte antes de decidir.</Description>
-            </div>
-            <Grid>{data.positions.map(position => <PositionCard key={position.ticker} position={position} bestRate={bestRate} />)}</Grid>
-          </Section>
-
-          <Section style={{ opacity: equityLoading ? 0.6 : 1 }}>
-            <div>
-              <PanelTitle>Ações, BDRs e ETFs da carteira</PanelTitle>
-              <Description>
-                A nota usa dados de mercado e histórico disponível; não avalia sozinha lucro, dívida, preço justo ou sua estratégia.
-                O provento anualizado é calculado a partir do valor por pagamento que você cadastrou e pode diferir do histórico real.
-              </Description>
-            </div>
-            {equityError && <Note role="status">{equityError}</Note>}
-            {equityLoading ? (
-              <EmptyState><LoaderCircle /><p>Carregando e avaliando ações da carteira...</p></EmptyState>
-            ) : equityHoldings.length ? (
-              <Grid>
-                {equityHoldings.map(holding => (
-                  <EquityPositionCard
-                    key={String(holding.id)}
-                    holding={holding}
-                    analysis={equityAnalysis.find(item => item.ticker?.toUpperCase() === holding.ticker.toUpperCase())}
-                  />
-                ))}
-              </Grid>
-            ) : (
-              <Note>Nenhuma ação, BDR ou ETF ativo encontrado em Dividendos.</Note>
-            )}
           </Section>
 
           <Section style={{ opacity: loading ? 0.6 : 1 }}>

@@ -384,10 +384,19 @@ function normalizeOpportunityList(value: unknown): MarketOpportunityItem[] {
     : [];
 }
 
-export async function getMarketOpportunities(perfil?: MarketRiskProfile): Promise<MarketOpportunities> {
+export async function getMarketOpportunities(
+  perfil?: MarketRiskProfile,
+  includePortfolio = true,
+): Promise<MarketOpportunities> {
   const response = await api.get<Record<string, unknown>>(
     '/market/opportunities',
-    { params: perfil ? { perfil } : undefined, timeout: 60000 },
+    {
+      params: {
+        ...(perfil ? { perfil } : {}),
+        carteira: includePortfolio ? 'true' : 'false',
+      },
+      timeout: 60000,
+    },
   );
   const body = response.data;
   const allocation = (body.suggested_allocation_pct ?? {}) as Record<string, unknown>;
